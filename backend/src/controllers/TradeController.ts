@@ -1,174 +1,55 @@
-import type { Request, Response } from 'express';
-import { TradeService, type CancelTradeInput, type CloseTradeInput, type ListTradesInput, type OpenTradeInput } from '../services/TradeService';
+import type { Request, Response } from 'express'
+import type { TradeService } from '../services/TradeService'
 
-type RequestHandler = (request: Request, response: Response) => Promise<Response> | Response;
+type Handler = (req: Request, res: Response) => Promise<Response>
 
 export class TradeController {
-  constructor(private readonly tradeService: TradeService) {}
+  constructor(private readonly svc: TradeService) {}
 
-  listTrades: RequestHandler = async (request, response) => {
+  listTrades: Handler = async (req, res) => {
     try {
-      const filters: ListTradesInput = {
-        accountId: this.getOptionalString(request.query.accountId),
-        symbol: this.getOptionalString(request.query.symbol),
-        status: this.getOptionalTradeStatus(request.query.status),
-        direction: this.getOptionalTradeDirection(request.query.direction),
-        orderType: this.getOptionalOrderType(request.query.orderType),
-      };
+      const q = req.query as Record<string, string | undefined>
+      const trades = await this.svc.listTrades({ accountId: q.accountId, symbol: q.symbol, status: q.status as any, direction: q.direction as any, orderType: q.orderType as any })
+      return res.status(200).json({ data: trades })
+    } catch (e: unknown) { return this.err(res, e) }
+  }
 
-      const trades = await this.tradeService.listTrades(filters);
-      return response.status(200).json({ data: trades });
-    } catch (error: unknown) {
-      return this.handleError(response, error);
-    }
-  };
-
-  openTrade: RequestHandler = async (request, response) => {
+  openTrade: Handler = async (req, res) => {
     try {
-      const body = request.body as Record<string, unknown>;
-      const input: OpenTradeInput = {
-        accountId: this.getRequiredString(body.accountId, 'accountId'),
-        symbol: this.getRequiredString(body.symbol, 'symbol').toUpperCase(),
-        direction: this.getRequiredTradeDirection(body.direction),
-        orderType: this.getRequiredOrderType(body.orderType),
-        quantity: this.getRequiredNumber(body.quantity, 'quantity'),
-        entryPrice: this.getRequiredNumber(body.entryPrice, 'entryPrice'),
-        limitPrice: this.getOptionalNumber(body.limitPrice),
-        stopPrice: this.getOptionalNumber(body.stopPrice),
-      } as OpenTradeInput;
+      const b = req.body as Record<string, unknown>
+      const input = {
+        accountId: this.reqStr(b.accountId), symbol: (this.reqStr(b.symbol) as string).toUpperCase(),
+        direction: this.reqEnum(b.direction, ['LONG', 'SHORT']) as 'LONG'|'SHORT',
+        orderType: this.reqEnum(b.orderType, ['MARKET', 'LIMIT', 'STOP']) as 'MARKET'|'LIMIT'|'STOP',
+        quantity: this.reqNum(b.quantity),
+        ...(this.optNum(b.limitPrice) !== undefined && { limitPrice: this.optNum(b.limitPrice) }),
+        ...(this.optNum(b.stopPrice) !== undefined && { stopPrice: this.optNum(b.stopPrice) }),
+      } as { accountId: string; symbol: string; direction: 'LONG'|'SHORT'; orderType: 'MARKET'|'LIMIT'|'STOP'; quantity: number; limitPrice?: number; stopPrice?: number }
+      const result = await this.svc.openTrade(input)
+      return res.status(201).json({ data: result })
+    } catch (e: unknown) { return this.err(res, e) }
+  }
 
-      const result = await this.tradeService.openTrade(input);
-      return response.status(201).json({ data: result });
-    } catch (error: unknown) {
-      return this.handleError(response, error);
-    }
-  };
-
-  closeTrade: RequestHandler = async (request, response) => {
+  closeTrade: Handler = async (req, res) => {
     try {
-      const input: CloseTradeInput = {
-        tradeId: this.getRequiredString(request.params.id, 'id'),
-      };
+      const result = await this.svc.closeTrade(this.reqStr(req.params.id))
+      return res.status(200).json({ data: result })
+    } catch (e: unknown) { return this.err(res, e) }
+  }
 
-      const result = await this.tradeService.closeTrade(input);
-      return response.status(200).json({ data: result });
-    } catch (error: unknown) {
-      return this.handleError(response, error);
-    }
-  };
-
-  cancelTrade: RequestHandler = async (request, response) => {
+  cancelTrade: Handler = async (req, res) => {
     try {
-      const input: CancelTradeInput = {
-        tradeId: this.getRequiredString(request.params.id, 'id'),
-      };
-
-      const result = await this.tradeService.cancelTrade(input);
-      return response.status(200).json({ data: result });
-    } catch (error: unknown) {
-      return this.handleError(response, error);
-    }
-  };
-
-  private handleError(response: Response, error: unknown): Response {
-    if (error instanceof Error) {
-      return response.status(400).json({
-        error: error.message,
-      });
-    }
-
-    return response.status(500).json({
-      error: 'An unexpected error occurred.',
-    });
+      const result = await this.svc.cancelTrade(this.reqStr(req.params.id))
+      return res.status(200).json({ data: result })
+    } catch (e: unknown) { return this.err(res, e) }
   }
 
-  private getRequiredString(value: unknown, fieldName: string): string {
-    if (typeof value !== 'string' || value.trim().length === 0) {
-      throw new Error(`${fieldName} must be a non-empty string.`);
-    }
-
-    return value.trim();
-  }
-
-  private getOptionalString(value: unknown): string | undefined {
-    if (typeof value !== 'string') {
-      return undefined;
-    }
-
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-  }
-
-  private getRequiredNumber(value: unknown, fieldName: string): number {
-    if (typeof value !== 'number' || Number.isNaN(value)) {
-      throw new Error(`${fieldName} must be a valid number.`);
-    }
-
-    return value;
-  }
-
-  private getOptionalNumber(value: unknown): number | undefined {
-    if (typeof value !== 'number' || Number.isNaN(value)) {
-      return undefined;
-    }
-
-    return value;
-  }
-
-  private getOptionalDate(value: unknown): Date | undefined {
-    if (typeof value !== 'string') {
-      return undefined;
-    }
-
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-      throw new Error('Invalid date value provided.');
-    }
-
-    return parsed;
-  }
-
-  private getRequiredTradeDirection(value: unknown): 'LONG' | 'SHORT' {
-    if (value === 'LONG' || value === 'SHORT') {
-      return value;
-    }
-
-    throw new Error('direction must be either LONG or SHORT.');
-  }
-
-  private getOptionalTradeDirection(value: unknown): 'LONG' | 'SHORT' | undefined {
-    if (value === undefined) {
-      return undefined;
-    }
-
-    return this.getRequiredTradeDirection(value);
-  }
-
-  private getRequiredOrderType(value: unknown): 'MARKET' | 'LIMIT' | 'STOP' {
-    if (value === 'MARKET' || value === 'LIMIT' || value === 'STOP') {
-      return value;
-    }
-
-    throw new Error('orderType must be MARKET, LIMIT, or STOP.');
-  }
-
-  private getOptionalOrderType(value: unknown): 'MARKET' | 'LIMIT' | 'STOP' | undefined {
-    if (value === undefined) {
-      return undefined;
-    }
-
-    return this.getRequiredOrderType(value);
-  }
-
-  private getOptionalTradeStatus(value: unknown): 'PENDING' | 'OPEN' | 'CLOSED' | 'CANCELLED' | undefined {
-    if (value === undefined) {
-      return undefined;
-    }
-
-    if (value === 'PENDING' || value === 'OPEN' || value === 'CLOSED' || value === 'CANCELLED') {
-      return value;
-    }
-
-    throw new Error('status must be PENDING, OPEN, CLOSED, or CANCELLED.');
+  private reqStr(v: unknown): string { if (typeof v !== 'string' || !v.trim()) throw new Error('Field required.'); return v.trim() }
+  private reqEnum(v: unknown, vals: string[]): string { if (vals.includes(v as string)) return v as string; throw new Error(`Invalid value. Expected one of: ${vals.join(', ')}`) }
+  private reqNum(v: unknown): number { if (typeof v !== 'number' || Number.isNaN(v)) throw new Error('Field must be a number'); return v }
+  private optNum(v: unknown): number | undefined { return typeof v === 'number' && !Number.isNaN(v) ? v : undefined }
+  private err(res: Response, e: unknown): Response {
+    if (e instanceof Error) { const sc = 'statusCode' in e ? (e as any).statusCode : 400; return res.status(sc).json({ error: e.message }) }
+    return res.status(500).json({ error: 'Unexpected error' })
   }
 }

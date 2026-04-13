@@ -1,89 +1,33 @@
-import * as bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import { ConflictError, UnauthorizedError } from '../errors/AppError';
-import type { IAuthRepository, UserRecord } from '../repositories/interfaces/IAuthRepository';
-
-export interface AuthResult {
-  readonly user: {
-    readonly id: string;
-    readonly email: string;
-    readonly username: string;
-    readonly createdAt: Date;
-  };
-  readonly token: string;
-}
-
-export interface AuthServiceDependencies {
-  readonly authRepository: IAuthRepository;
-  readonly jwtSecret: string;
-}
+import * as bcrypt from 'bcrypt'
+import jwt from 'jsonwebtoken'
+import { ConflictError, UnauthorizedError } from '../errors'
+import type { UserRecord, AuthResult, CreateUserDto } from '../types'
+import type { IAuthRepository } from '../repositories/AuthRepository'
 
 export class AuthService {
-  private readonly authRepository: IAuthRepository;
-  private readonly jwtSecret: string;
+  constructor(
+    private readonly authRepo: IAuthRepository,
+    private readonly jwtSecret: string,
+  ) {}
 
-  constructor(dependencies: AuthServiceDependencies) {
-    this.authRepository = dependencies.authRepository;
-    this.jwtSecret = dependencies.jwtSecret;
-  }
-
-  async register(
-    email: string,
-    username: string,
-    password: string,
-  ): Promise<AuthResult> {
-    const existing = await this.authRepository.findByEmail(email);
-    if (existing !== null) {
-      throw new ConflictError('An account with this email already exists.');
-    }
-
-    const user = await this.authRepository.create({
-      email,
-      username,
-      password,
-    });
-
-    const token = this.signToken(user);
-
-    return {
-      user: this.toPublicUser(user),
-      token,
-    };
+  async register(email: string, username: string, password: string): Promise<AuthResult> {
+    const existing = await this.authRepo.findByEmail(email)
+    if (existing) throw new ConflictError('An account with this email already exists.')
+    const user = await this.authRepo.create({ email, username, password })
+    return { user: this.toPublic(user), token: this.sign(user) }
   }
 
   async login(email: string, password: string): Promise<AuthResult> {
-    const user = await this.authRepository.findByEmail(email);
-    if (user === null) {
-      throw new UnauthorizedError('Invalid email or password.');
-    }
-
-    const passwordMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!passwordMatch) {
-      throw new UnauthorizedError('Invalid email or password.');
-    }
-
-    const token = this.signToken(user);
-
-    return {
-      user: this.toPublicUser(user),
-      token,
-    };
+    const user = await this.authRepo.findByEmail(email)
+    if (!user) throw new UnauthorizedError('Invalid email or password.')
+    if (!(await bcrypt.compare(password, user.passwordHash))) throw new UnauthorizedError('Invalid email or password.')
+    return { user: this.toPublic(user), token: this.sign(user) }
   }
 
-  private signToken(user: UserRecord): string {
-    return jwt.sign(
-      { userId: user.id, email: user.email },
-      this.jwtSecret,
-      { expiresIn: '24h' },
-    );
+  private sign(u: UserRecord): string {
+    return jwt.sign({ userId: u.id, email: u.email }, this.jwtSecret, { expiresIn: '24h' })
   }
-
-  private toPublicUser(user: UserRecord): AuthResult['user'] {
-    return {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      createdAt: user.createdAt,
-    };
+  private toPublic(u: UserRecord): AuthResult['user'] {
+    return { id: u.id, email: u.email, username: u.username, createdAt: u.createdAt }
   }
 }

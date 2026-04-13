@@ -1,71 +1,33 @@
-import { Router } from 'express';
-import { MarketController } from '../controllers/MarketController';
-import { TradeController } from '../controllers/TradeController';
-import { TradeService } from '../services/TradeService';
-import { AlphaVantageMarketDataService } from '../services/AlphaVantageMarketDataService';
-import { MockMarketDataService } from '../services/MockMarketDataService';
-import { PrismaTradeRepository } from '../repositories/PrismaTradeRepository';
-import { PrismaTradingAccountRepository } from '../repositories/PrismaTradingAccountRepository';
-import { PrismaPositionRepository } from '../repositories/PrismaPositionRepository';
-import { PrismaAnalyticsReportRepository } from '../repositories/PrismaAnalyticsReportRepository';
-import type { IMarketDataService } from '../repositories/interfaces/IMarketDataService';
-import { TradeEventPublisher } from '../patterns/observers/TradeEventPublisher';
-import { PnLCalculatorObserver } from '../patterns/observers/PnLCalculatorObserver';
-import { AnalyticsTriggerObserver } from '../patterns/observers/AnalyticsTriggerObserver';
-import { NotificationObserver } from '../patterns/observers/NotificationObserver';
-import { ConsoleNotifier } from '../patterns/observers/Notifier';
-import { authenticate } from '../middleware/authenticate';
+import { Router } from 'express'
+import { TradeController } from '../controllers/TradeController'
+import { createTradeService, createMarketDataService } from '../services/TradeService'
+import { TradeRepository, PositionRepository } from '../repositories/TradeRepository'
+import { AccountRepository, AnalyticsReportRepository } from '../repositories/AccountRepository'
+import { authenticate } from '../errors'
 
-const jwtSecret = process.env.JWT_SECRET;
-if (typeof jwtSecret !== 'string' || jwtSecret.trim().length === 0) {
-  throw new Error('JWT_SECRET must be configured in environment.');
-}
+const tradeRepo = new TradeRepository()
+const accountRepo = new AccountRepository()
+const positionRepo = new PositionRepository()
+const analyticsRepo = new AnalyticsReportRepository()
 
-const createMarketDataService = (): IMarketDataService => {
-  const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+const tradeService = createTradeService(tradeRepo, accountRepo, positionRepo, analyticsRepo)
+const tradeController = new TradeController(tradeService)
+const marketData = createMarketDataService()
 
-  if (typeof apiKey === 'string' && apiKey.trim().length > 0) {
-    return new AlphaVantageMarketDataService(apiKey);
-  }
+export const tradeRoutes = Router()
 
-  return new MockMarketDataService();
-};
+// Public
+tradeRoutes.get('/market/:symbol', async (req, res) => {
+  try {
+    const symbol = typeof req.params.symbol === 'string' ? req.params.symbol.trim().toUpperCase() : undefined
+    if (!symbol) return res.status(400).json({ error: 'symbol required' })
+    const data = await marketData.getPrice(symbol)
+    return res.status(200).json({ data })
+  } catch (e: unknown) { res.status(400).json({ error: e instanceof Error ? e.message : 'Error' }) }
+})
 
-const marketDataService = createMarketDataService();
-const tradeRepository = new PrismaTradeRepository();
-const tradingAccountRepository = new PrismaTradingAccountRepository();
-const positionRepository = new PrismaPositionRepository();
-const analyticsRepository = new PrismaAnalyticsReportRepository();
-
-const eventPublisher = new TradeEventPublisher();
-eventPublisher.subscribe(
-  new PnLCalculatorObserver({
-    tradeRepository,
-    tradingAccountRepository,
-    marketDataService,
-    positionRepository,
-  }),
-);
-eventPublisher.subscribe(new AnalyticsTriggerObserver(analyticsRepository));
-eventPublisher.subscribe(new NotificationObserver(new ConsoleNotifier()));
-
-const tradeService = new TradeService({
-  tradeRepository,
-  tradingAccountRepository,
-  marketDataService,
-  eventPublisher,
-});
-
-const tradeController = new TradeController(tradeService);
-const marketController = new MarketController(marketDataService);
-
-export const tradeRoutes = Router();
-
-// Public route
-tradeRoutes.get('/market/:symbol', marketController.getMarketPrice);
-
-// Protected routes
-tradeRoutes.get('/trades', authenticate(jwtSecret), tradeController.listTrades);
-tradeRoutes.post('/trades', authenticate(jwtSecret), tradeController.openTrade);
-tradeRoutes.patch('/trades/:id/close', authenticate(jwtSecret), tradeController.closeTrade);
-tradeRoutes.patch('/trades/:id/cancel', authenticate(jwtSecret), tradeController.cancelTrade);
+// Protected
+tradeRoutes.get('/trades', authenticate(), tradeController.listTrades)
+tradeRoutes.post('/trades', authenticate(), tradeController.openTrade)
+tradeRoutes.patch('/trades/:id/close', authenticate(), tradeController.closeTrade)
+tradeRoutes.patch('/trades/:id/cancel', authenticate(), tradeController.cancelTrade)

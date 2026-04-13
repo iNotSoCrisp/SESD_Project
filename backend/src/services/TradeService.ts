@@ -1,431 +1,132 @@
-import { TradeFactory } from '../patterns/factories/TradeFactory';
-import { TradeContext } from '../patterns/context/TradeContext';
-import { TradeEventPublisher } from '../patterns/observers/TradeEventPublisher';
-import { ClosedState } from '../patterns/state/ClosedState';
-import { CancelledState } from '../patterns/state/CancelledState';
-import { OpenState } from '../patterns/state/OpenState';
-import { PendingState } from '../patterns/state/PendingState';
-import type { TradeState } from '../patterns/state/TradeState';
-import { MarketOrderStrategy } from '../patterns/strategies/MarketOrderStrategy';
-import { LimitOrderStrategy } from '../patterns/strategies/LimitOrderStrategy';
-import { StopOrderStrategy } from '../patterns/strategies/StopOrderStrategy';
-import type { Trade } from '../models/Trade';
+import { TradeFactory } from '../models/TradeFactory'
+import { TradeContext, getStrategy } from '../patterns/OrderStrategies'
+import { TradeEventPublisher, PnLCalculatorObserver, AnalyticsTriggerObserver, NotificationObserver, ConsoleNotifier } from '../patterns/TradeObservers'
+import { getState } from '../patterns/TradeStateMachine'
+import type { Trade } from '../models/Trade'
 import type {
-  MarketData,
-  OrderType,
-  TradeCreationParams,
-  TradeResult,
-  TradeStatus,
-} from '../models/trade.types';
-import type {
-  CreateTradeRecordInput,
-  ITradeRepository,
-  PersistedTradeRecord,
-  TradeListFilters,
-  UpdateTradeRecordInput,
-} from '../repositories/interfaces/ITradeRepository';
-import type { ITradingAccountRepository } from '../repositories/interfaces/ITradingAccountRepository';
-import type { IMarketDataService } from '../repositories/interfaces/IMarketDataService';
+  MarketData, TradeResult, TradeCreationParams, IMarketDataService, PersistedTradeRecord,
+  TradeListFilters, CreateTradeRecordInput, UpdateTradeRecordInput, TradeStatus,
+} from '../types'
+import type { ITradeRepository, IPositionRepository } from '../repositories/TradeRepository'
+import type { IAccountRepository, IAnalyticsReportRepository } from '../repositories/AccountRepository'
 
-export interface ListTradesInput extends TradeListFilters {}
+// ─── Market Data Services ────────────────────────────────────────────────────
+const BASE_PRICES: Record<string, number> = { AAPL: 175, BTC: 45000, ETH: 2400, TSLA: 190, MSFT: 420, GOOGL: 155 }
 
-export type OpenTradeInput =
-  | Omit<
-      Extract<TradeCreationParams, { orderType: 'MARKET' }>,
-      'id' | 'status' | 'enteredAt' | 'closedAt' | 'entryPrice'
-    >
-  | Omit<
-      Extract<TradeCreationParams, { orderType: 'LIMIT' }>,
-      'id' | 'status' | 'enteredAt' | 'closedAt' | 'entryPrice'
-    >
-  | Omit<
-      Extract<TradeCreationParams, { orderType: 'STOP' }>,
-      'id' | 'status' | 'enteredAt' | 'closedAt' | 'entryPrice'
-    >;
-
-export interface CloseTradeInput {
-  readonly tradeId: string;
+class MockMarketData implements IMarketDataService {
+  async getPrice(symbol: string): Promise<MarketData> {
+    const s = symbol.trim().toUpperCase(); const base = BASE_PRICES[s] ?? 100
+    const nf = 1 + (Math.random() * 0.04 - 0.02); const price = Number((base * nf).toFixed(2))
+    const spread = Number((price * 0.001).toFixed(2))
+    return { symbol: s, price, currentPrice: price, bidPrice: Number((price - spread).toFixed(2)), askPrice: Number((price + spread).toFixed(2)), open: Number((price * (1 + Math.random() * 0.02 - 0.01)).toFixed(2)), high: price, low: price, volume: Math.floor(Math.random() * 4990000 + 10000), timestamp: new Date() }
+  }
+  async getMarketData(s: string): Promise<MarketData> { return this.getPrice(s) }
 }
 
-export interface CancelTradeInput {
-  readonly tradeId: string;
+class AlphaVantageMarketData implements IMarketDataService {
+  constructor(private readonly apiKey: string) {}
+  async getPrice(symbol: string): Promise<MarketData> {
+    const s = symbol.trim().toUpperCase(); if (!s) throw new Error('symbol required')
+    if (!this.apiKey.trim()) throw new Error('Alpha Vantage API key not configured.')
+    const url = new URL('https://www.alphavantage.co/query'); url.searchParams.set('function', 'GLOBAL_QUOTE'); url.searchParams.set('symbol', s); url.searchParams.set('apikey', this.apiKey)
+    const res = await fetch(url); if (!res.ok) throw new Error(`Alpha Vantage failed: ${res.status}`)
+    const json = await res.json() as Record<string, any>
+    const quote = json['Global Quote']; if (!quote) throw new Error('No quote data')
+    const price = Number(quote['05. price']); const spread = Number((price * 0.001).toFixed(2))
+    return { symbol: quote['01. symbol']?.trim().toUpperCase() || s, price, currentPrice: price, bidPrice: Number((price - spread).toFixed(2)), askPrice: Number((price + spread).toFixed(2)), open: Number(quote['02. open']), high: Number(quote['03. high']), low: Number(quote['04. low']), volume: Number(quote['06. volume']), timestamp: new Date() }
+  }
+  async getMarketData(s: string): Promise<MarketData> { return this.getPrice(s) }
 }
 
-export interface TradeResponseDto {
-  readonly id: string;
-  readonly accountId: string;
-  readonly symbol: string;
-  readonly direction: string;
-  readonly orderType: OrderType;
-  readonly quantity: number;
-  readonly entryPrice: number;
-  readonly status: TradeStatus;
-  readonly enteredAt: Date | null;
-  readonly closedAt: Date | null;
-  readonly limitPrice?: number;
-  readonly stopPrice?: number;
+export function createMarketDataService(): IMarketDataService {
+  const key = process.env.ALPHA_VANTAGE_API_KEY
+  return (typeof key === 'string' && key.trim().length > 0) ? new AlphaVantageMarketData(key) : new MockMarketData()
 }
 
-export interface OpenTradeResponse {
-  readonly trade: TradeResponseDto;
-  readonly execution: TradeResult;
-}
-
-export interface CloseTradeResponse {
-  readonly trade: TradeResponseDto;
-  readonly market: MarketData;
-  readonly pnl: number;
-}
-
-export interface CancelTradeResponse {
-  readonly trade: TradeResponseDto;
-}
-
-export interface TradeServiceDependencies {
-  readonly tradeRepository: ITradeRepository;
-  readonly tradingAccountRepository: ITradingAccountRepository;
-  readonly marketDataService: IMarketDataService;
-  readonly eventPublisher: TradeEventPublisher;
+// ─── Trade Service ───────────────────────────────────────────────────────────
+export interface TradeServiceDeps {
+  tradeRepo: ITradeRepository; accountRepo: IAccountRepository
+  marketData: IMarketDataService; publisher: TradeEventPublisher
+  positionRepo: IPositionRepository; analyticsRepo: IAnalyticsReportRepository
 }
 
 export class TradeService {
-  private readonly tradeRepository: ITradeRepository;
-  private readonly tradingAccountRepository: ITradingAccountRepository;
-  private readonly marketDataService: IMarketDataService;
-  private readonly eventPublisher: TradeEventPublisher;
+  constructor(private readonly d: TradeServiceDeps) {}
 
-  constructor(dependencies: TradeServiceDependencies) {
-    this.tradeRepository = dependencies.tradeRepository;
-    this.tradingAccountRepository = dependencies.tradingAccountRepository;
-    this.marketDataService = dependencies.marketDataService;
-    this.eventPublisher = dependencies.eventPublisher;
+  async listTrades(filters: TradeListFilters): Promise<readonly PersistedTradeRecord[]> {
+    return this.d.tradeRepo.findMany(filters)
   }
 
-  async listTrades(filters: ListTradesInput): Promise<ReadonlyArray<TradeResponseDto>> {
-    const records = await this.tradeRepository.findMany(filters);
-    return records.map((record) => this.toTradeResponse(record));
-  }
+  async openTrade(input: { accountId: string; symbol: string; direction: 'LONG'|'SHORT'; orderType: 'MARKET'|'LIMIT'|'STOP'; quantity: number; entryPrice?: number; limitPrice?: number; stopPrice?: number }): Promise<{ trade: PersistedTradeRecord; execution: TradeResult }> {
+    const account = await this.d.accountRepo.findById(input.accountId)
+    if (!account) throw new Error('Trading account not found.')
+    if (!account.isActive) throw new Error('Trading account is inactive.')
 
-  async openTrade(input: OpenTradeInput): Promise<OpenTradeResponse> {
-    const account = await this.tradingAccountRepository.findById(input.accountId);
-    if (account === null) {
-      throw new Error('Trading account not found.');
-    }
+    const market = await this.d.marketData.getMarketData(input.symbol)
+    const entryPrice = input.orderType === 'MARKET' ? market.askPrice : (input.orderType === 'LIMIT' ? input.limitPrice! : input.stopPrice!)
 
-    if (!account.isActive) {
-      throw new Error('Trading account is inactive.');
-    }
+    const params: TradeCreationParams = {
+      id: `trade_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
+      accountId: input.accountId, symbol: input.symbol.toUpperCase(), direction: input.direction,
+      orderType: input.orderType, quantity: input.quantity, entryPrice, status: 'PENDING', enteredAt: null, closedAt: null,
+    } as TradeCreationParams
+    if (input.orderType === 'LIMIT') (params as any).limitPrice = input.limitPrice
+    if (input.orderType === 'STOP') (params as any).stopPrice = input.stopPrice
 
-    const tradeId = this.generateTradeId();
-    const market = await this.marketDataService.getMarketData(input.symbol);
-    const trade = TradeFactory.create(input.orderType, {
-      ...input,
-      id: tradeId,
-      entryPrice: this.resolveRequestedEntryPrice(input, market),
-      status: 'PENDING',
-      enteredAt: null,
-      closedAt: null,
-    } as TradeCreationParams);
+    const trade = TradeFactory.create(input.orderType, params)
+    const ctx = new TradeContext(getStrategy(input.orderType))
+    const execution = ctx.executeOrder(trade, market)
 
-    const context = new TradeContext(this.getStrategy(input.orderType));
-    const execution = context.executeOrder(trade, market);
-
-    const nextStatus = execution.executed ? 'OPEN' : 'PENDING';
     if (execution.executed) {
-      new PendingState().open({
-        tradeId,
-      });
-      await this.eventPublisher.notify({
-        type: 'TRADE_OPENED',
-        tradeId,
-        status: nextStatus,
-        occurredAt: new Date(),
-        metadata: {
-          symbol: input.symbol,
-          accountId: input.accountId,
-        },
-      });
+      getState('PENDING').open({ tradeId: trade.id })
+      await this.d.publisher.notify({ type: 'TRADE_OPENED', tradeId: trade.id, status: 'OPEN', occurredAt: new Date(), metadata: { symbol: input.symbol, accountId: input.accountId } })
     }
 
-    const persisted = await this.tradeRepository.create(
-      this.toCreateTradeRecordInput(input, execution, nextStatus),
-    );
+    const createInput: CreateTradeRecordInput = {
+      accountId: input.accountId, symbol: input.symbol.toUpperCase(), direction: input.direction,
+      orderType: input.orderType, quantity: input.quantity, entryPrice: execution.executionPrice ?? entryPrice,
+      status: execution.executed ? 'OPEN' : 'PENDING', enteredAt: execution.executed ? new Date() : null, closedAt: null,
+      ...(input.orderType === 'LIMIT' && input.limitPrice !== undefined && { limitPrice: input.limitPrice }),
+      ...(input.orderType === 'STOP' && input.stopPrice !== undefined && { stopPrice: input.stopPrice }),
+    }
 
-    return {
-      trade: this.toTradeResponse(persisted),
-      execution,
-    };
+    const persisted = await this.d.tradeRepo.create(createInput)
+    return { trade: persisted, execution }
   }
 
-  async closeTrade(input: CloseTradeInput): Promise<CloseTradeResponse> {
-    const record = await this.tradeRepository.findById(input.tradeId);
-    if (record === null) {
-      throw new Error('Trade not found.');
-    }
+  async closeTrade(tradeId: string): Promise<{ trade: PersistedTradeRecord; market: MarketData; pnl: number }> {
+    const record = await this.d.tradeRepo.findById(tradeId)
+    if (!record) throw new Error('Trade not found.')
+    getState(record.status).close({ tradeId })
 
-    const currentState = this.getState(record.status);
-    currentState.close({
-      tradeId: record.id,
-    });
+    const market = await this.d.marketData.getMarketData(record.symbol)
+    // Rebuild Trade object for PnL calc
+    const tradeObj = TradeFactory.create(record.orderType, { id: record.id, accountId: record.accountId, symbol: record.symbol, direction: record.direction, orderType: record.orderType, quantity: record.quantity, entryPrice: record.entryPrice, status: record.status, enteredAt: record.enteredAt, closedAt: record.closedAt, ...(record.limitPrice !== undefined ? { limitPrice: record.limitPrice } as any : {}), ...(record.stopPrice !== undefined ? { stopPrice: record.stopPrice } as any : {}) } as TradeCreationParams)
+    const pnl = tradeObj.calculatePnL(market.currentPrice)
 
-    const market = await this.marketDataService.getMarketData(record.symbol);
-    const trade = this.createTradeFromRecord(record);
-    const pnl = trade.calculatePnL(market.currentPrice);
+    const updated = await this.d.tradeRepo.update(record.id, { status: 'CLOSED', closedAt: new Date() })
+    const account = await this.d.accountRepo.findById(record.accountId)
+    if (!account) throw new Error('Account not found.')
 
-    const updateInput: UpdateTradeRecordInput = {
-      status: 'CLOSED',
-      closedAt: new Date(),
-    };
-
-    const updated = await this.tradeRepository.update(record.id, updateInput);
-    const account = await this.tradingAccountRepository.findById(record.accountId);
-
-    if (account === null) {
-      throw new Error('Trading account not found.');
-    }
-
-    await this.eventPublisher.notify({
-      type: 'TRADE_CLOSED',
-      tradeId: record.id,
-      accountId: record.accountId,
-      userId: account.userId,
-      occurredAt: new Date(),
-      metadata: {
-        symbol: record.symbol,
-      },
-    });
-
-    return {
-      trade: this.toTradeResponse(updated),
-      market,
-      pnl,
-    };
+    await this.d.publisher.notify({ type: 'TRADE_CLOSED', tradeId: record.id, accountId: record.accountId, userId: account.userId, occurredAt: new Date(), metadata: { symbol: record.symbol } })
+    return { trade: updated, market, pnl }
   }
 
-  async cancelTrade(input: CancelTradeInput): Promise<CancelTradeResponse> {
-    const record = await this.tradeRepository.findById(input.tradeId);
-    if (record === null) {
-      throw new Error('Trade not found.');
-    }
-
-    const currentState = this.getState(record.status);
-    currentState.cancel({
-      tradeId: record.id,
-    });
-
-    await this.eventPublisher.notify({
-      type: 'TRADE_CANCELLED',
-      tradeId: record.id,
-      status: 'CANCELLED',
-      occurredAt: new Date(),
-      metadata: {
-        symbol: record.symbol,
-      },
-    });
-
-    const updated = await this.tradeRepository.update(record.id, {
-      status: 'CANCELLED',
-    });
-
-    return {
-      trade: this.toTradeResponse(updated),
-    };
+  async cancelTrade(tradeId: string): Promise<{ trade: PersistedTradeRecord }> {
+    const record = await this.d.tradeRepo.findById(tradeId)
+    if (!record) throw new Error('Trade not found.')
+    getState(record.status).cancel({ tradeId })
+    await this.d.publisher.notify({ type: 'TRADE_CANCELLED', tradeId: record.id, status: 'CANCELLED', occurredAt: new Date(), metadata: { symbol: record.symbol } })
+    const updated = await this.d.tradeRepo.update(record.id, { status: 'CANCELLED' })
+    return { trade: updated }
   }
+}
 
-  private getStrategy(orderType: OrderType): MarketOrderStrategy | LimitOrderStrategy | StopOrderStrategy {
-    switch (orderType) {
-      case 'MARKET':
-        return new MarketOrderStrategy();
-      case 'LIMIT':
-        return new LimitOrderStrategy();
-      case 'STOP':
-        return new StopOrderStrategy();
-      default: {
-        const unreachable: never = orderType;
-        throw new Error(`Unsupported order type: ${String(unreachable)}`);
-      }
-    }
-  }
-
-  private getState(status: TradeStatus): TradeState {
-    switch (status) {
-      case 'PENDING':
-        return new PendingState();
-      case 'OPEN':
-        return new OpenState();
-      case 'CLOSED':
-        return new ClosedState();
-      case 'CANCELLED':
-        return new CancelledState();
-      default: {
-        const unreachable: never = status;
-        throw new Error(`Unsupported trade status: ${String(unreachable)}`);
-      }
-    }
-  }
-
-  private resolveRequestedEntryPrice(input: OpenTradeInput, market: MarketData): number {
-    switch (input.orderType) {
-      case 'MARKET':
-        return market.askPrice;
-      case 'LIMIT':
-        return input.limitPrice;
-      case 'STOP':
-        return input.stopPrice;
-      default: {
-        const unreachable: never = input;
-        throw new Error(`Unsupported trade input: ${String(unreachable)}`);
-      }
-    }
-  }
-
-  private toCreateTradeRecordInput(
-    input: OpenTradeInput,
-    execution: TradeResult,
-    status: TradeStatus,
-  ): CreateTradeRecordInput {
-    const recordInput: CreateTradeRecordInput = {
-      accountId: input.accountId,
-      symbol: input.symbol,
-      direction: input.direction,
-      orderType: input.orderType,
-      quantity: input.quantity,
-      entryPrice: execution.executionPrice ?? this.resolveFallbackEntryPrice(input),
-      status,
-      enteredAt: execution.executed ? new Date() : null,
-      closedAt: null,
-    };
-
-    if (input.orderType === 'LIMIT') {
-      return {
-        ...recordInput,
-        limitPrice: input.limitPrice,
-      };
-    }
-
-    if (input.orderType === 'STOP') {
-      return {
-        ...recordInput,
-        stopPrice: input.stopPrice,
-      };
-    }
-
-    return recordInput;
-  }
-
-  private resolveFallbackEntryPrice(input: OpenTradeInput): number {
-    switch (input.orderType) {
-      case 'MARKET':
-        throw new Error('Market order must return an execution price.');
-      case 'LIMIT':
-        return input.limitPrice;
-      case 'STOP':
-        return input.stopPrice;
-      default: {
-        const unreachable: never = input;
-        throw new Error(`Unsupported trade input: ${String(unreachable)}`);
-      }
-    }
-  }
-
-  private toTradeResponse(record: PersistedTradeRecord): TradeResponseDto {
-    const baseResponse = {
-      id: record.id,
-      accountId: record.accountId,
-      symbol: record.symbol,
-      direction: record.direction,
-      orderType: record.orderType,
-      quantity: record.quantity,
-      entryPrice: record.entryPrice,
-      status: record.status,
-      enteredAt: record.enteredAt,
-      closedAt: record.closedAt,
-    };
-
-    if (record.limitPrice !== undefined) {
-      return {
-        ...baseResponse,
-        limitPrice: record.limitPrice,
-      };
-    }
-
-    if (record.stopPrice !== undefined) {
-      return {
-        ...baseResponse,
-        stopPrice: record.stopPrice,
-      };
-    }
-
-    return baseResponse;
-  }
-
-  private createTradeFromRecord(record: PersistedTradeRecord): Trade {
-    if (record.orderType === 'LIMIT' && record.limitPrice === undefined) {
-      throw new Error('Limit trade record missing limitPrice.');
-    }
-
-    if (record.orderType === 'STOP' && record.stopPrice === undefined) {
-      throw new Error('Stop trade record missing stopPrice.');
-    }
-
-    if (record.orderType === 'MARKET') {
-      return TradeFactory.create('MARKET', {
-        id: record.id,
-        accountId: record.accountId,
-        symbol: record.symbol,
-        direction: record.direction,
-        orderType: 'MARKET',
-        quantity: record.quantity,
-        entryPrice: record.entryPrice,
-        status: record.status,
-        enteredAt: record.enteredAt,
-        closedAt: record.closedAt,
-      });
-    }
-
-    if (record.orderType === 'LIMIT') {
-      if (record.limitPrice === undefined) {
-        throw new Error('Limit trade record missing limitPrice.');
-      }
-      return TradeFactory.create('LIMIT', {
-        id: record.id,
-        accountId: record.accountId,
-        symbol: record.symbol,
-        direction: record.direction,
-        orderType: 'LIMIT',
-        quantity: record.quantity,
-        entryPrice: record.entryPrice,
-        status: record.status,
-        enteredAt: record.enteredAt,
-        closedAt: record.closedAt,
-        limitPrice: record.limitPrice,
-      });
-    }
-
-    if (record.orderType === 'STOP') {
-      if (record.stopPrice === undefined) {
-        throw new Error('Stop trade record missing stopPrice.');
-      }
-      return TradeFactory.create('STOP', {
-        id: record.id,
-        accountId: record.accountId,
-        symbol: record.symbol,
-        direction: record.direction,
-        orderType: 'STOP',
-        quantity: record.quantity,
-        entryPrice: record.entryPrice,
-        status: record.status,
-        enteredAt: record.enteredAt,
-        closedAt: record.closedAt,
-        stopPrice: record.stopPrice,
-      });
-    }
-
-    const unreachable: never = record.orderType;
-    throw new Error(`Unsupported order type: ${String(unreachable)}`);
-  }
-
-  private generateTradeId(): string {
-    return `trade_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
-  }
+export function createTradeService(tradeRepo: ITradeRepository, accountRepo: IAccountRepository, positionRepo: IPositionRepository, analyticsRepo: IAnalyticsReportRepository): TradeService {
+  const marketData = createMarketDataService()
+  const publisher = new TradeEventPublisher()
+  publisher.subscribe(new PnLCalculatorObserver(tradeRepo, accountRepo, marketData, positionRepo))
+  publisher.subscribe(new AnalyticsTriggerObserver(analyticsRepo))
+  publisher.subscribe(new NotificationObserver(new ConsoleNotifier()))
+  return new TradeService({ tradeRepo, accountRepo, marketData, publisher, positionRepo, analyticsRepo })
 }

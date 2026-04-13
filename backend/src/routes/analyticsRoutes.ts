@@ -1,24 +1,25 @@
-import { Router } from 'express';
-import { AnalyticsController } from '../controllers/AnalyticsController';
-import { AnalyticsService } from '../services/AnalyticsService';
-import { PrismaAnalyticsReportRepository } from '../repositories/PrismaAnalyticsReportRepository';
-import { PrismaAnalyticsDataRepository } from '../repositories/PrismaAnalyticsDataRepository';
-import { authenticate } from '../middleware/authenticate';
+import { Router } from 'express'
+import { AnalyticsController } from '../controllers/AnalyticsController'
+import { EmotionController } from '../controllers/EmotionController'
+import { AnalyticsService } from '../services/AnalyticsService'
+import { EmotionService } from '../services/EmotionService'
+import { AnalyticsReportRepository, AccountRepository } from '../repositories/AccountRepository'
+import { AnalyticsDataRepository, TradeRepository } from '../repositories/TradeRepository'
+import { EmotionRepository } from '../repositories/EmotionRepository'
+import { authenticate } from '../errors'
 
-const jwtSecret = process.env.JWT_SECRET;
-if (typeof jwtSecret !== 'string' || jwtSecret.trim().length === 0) {
-  throw new Error('JWT_SECRET must be configured in environment.');
-}
+const analyticsService = new AnalyticsService(new AnalyticsReportRepository(), new AnalyticsDataRepository())
+const emotionService = new EmotionService(new EmotionRepository(), new TradeRepository())
+const analyticsController = new AnalyticsController(analyticsService)
+const emotionController = new EmotionController(emotionService)
 
-const analyticsService = new AnalyticsService({
-  analyticsReportRepository: new PrismaAnalyticsReportRepository(),
-  analyticsDataRepository: new PrismaAnalyticsDataRepository(),
-});
+export const analyticsRoutes = Router()
 
-const analyticsController = new AnalyticsController(analyticsService);
+// Emotion
+analyticsRoutes.post('/emotions', authenticate(), emotionController.createEmotion)
+analyticsRoutes.get('/emotions/:tradeId', authenticate(), emotionController.getEmotionsByTradeId)
 
-export const analyticsRoutes = Router();
-
-analyticsRoutes.get('/analytics/emotion-performance', authenticate(jwtSecret), analyticsController.emotionPerformance);
-analyticsRoutes.get('/analytics/time-of-day', authenticate(jwtSecret), analyticsController.timeOfDay);
-analyticsRoutes.get('/analytics/win-rate', authenticate(jwtSecret), analyticsController.winRate);
+// Analytics
+analyticsRoutes.get('/analytics/emotion-performance', authenticate(), analyticsController.emotionPerformance)
+analyticsRoutes.get('/analytics/time-of-day', authenticate(), analyticsController.timeOfDay)
+analyticsRoutes.get('/analytics/win-rate', authenticate(), analyticsController.winRate)

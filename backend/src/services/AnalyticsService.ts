@@ -1,60 +1,35 @@
-import type { IAnalyticsReportRepository } from '../repositories/interfaces/IAnalyticsReportRepository';
-import type { IAnalyticsDataRepository } from '../repositories/interfaces/IAnalyticsDataRepository';
-import type { AnalyticsEngine, InsightReport, TradeData } from '../patterns/analytics/AnalyticsEngine';
-import { EmotionPerformanceAnalyzer } from '../patterns/analytics/EmotionPerformanceAnalyzer';
-import { TimeOfDayAnalyzer } from '../patterns/analytics/TimeOfDayAnalyzer';
-import { WinRateAnalyzer } from '../patterns/analytics/WinRateAnalyzer';
+import type { InsightReport, TradeData, AnalyticsReportRecord } from '../types'
+import { EmotionPerformanceAnalyzer, TimeOfDayAnalyzer, WinRateAnalyzer } from '../patterns/Analyzers'
+import type { IAnalyticsReportRepository, IAccountRepository } from '../repositories/AccountRepository'
+import type { IAnalyticsDataRepository } from '../repositories/TradeRepository'
 
-const ENGINE_MAP: Record<string, () => AnalyticsEngine> = {
-  'emotion-performance': () => new EmotionPerformanceAnalyzer(),
-  'time-of-day': () => new TimeOfDayAnalyzer(),
-  'win-rate': () => new WinRateAnalyzer(),
-};
-
-export interface AnalyticsServiceDependencies {
-  readonly analyticsReportRepository: IAnalyticsReportRepository;
-  readonly analyticsDataRepository: IAnalyticsDataRepository;
+const ENGINE_MAP: Record<string, { new(): import('../patterns/Analyzers').AnalyticsEngine }> = {
+  'emotion-performance': EmotionPerformanceAnalyzer,
+  'time-of-day': TimeOfDayAnalyzer,
+  'win-rate': WinRateAnalyzer,
 }
 
 export class AnalyticsService {
-  private readonly analyticsReportRepository: IAnalyticsReportRepository;
-  private readonly analyticsDataRepository: IAnalyticsDataRepository;
-
-  constructor(dependencies: AnalyticsServiceDependencies) {
-    this.analyticsReportRepository = dependencies.analyticsReportRepository;
-    this.analyticsDataRepository = dependencies.analyticsDataRepository;
-  }
+  constructor(
+    private readonly reportRepo: IAnalyticsReportRepository,
+    private readonly dataRepo: IAnalyticsDataRepository,
+  ) {}
 
   async getReport(userId: string, reportType: string): Promise<InsightReport> {
-    const cached = await this.analyticsReportRepository.findByUserAndType(userId, reportType);
-    if (cached !== null && !cached.isStale) {
-      return cached.data as unknown as InsightReport;
-    }
+    const cached = await this.reportRepo.findByUserAndType(userId, reportType)
+    if (cached && !cached.isStale) return cached.data as unknown as InsightReport
 
-    const engine = this.getEngine(reportType);
-    const rawData = await this.analyticsDataRepository.findClosedTradesWithEmotionsAndPositions(userId);
+    const engine = this.getEngine(reportType)
+    const data = await this.dataRepo.findClosedTradesWithEmotionsAndPositions(userId)
+    const report = engine.analyzeWithData(data)
 
-    const report = this.analyzeWithEngine(engine, rawData);
-
-    await this.analyticsReportRepository.upsert(
-      userId,
-      reportType,
-      report as unknown as Record<string, unknown>,
-      false,
-    );
-
-    return report;
+    await this.reportRepo.upsert(userId, reportType, report as unknown as Record<string, unknown>, false)
+    return report
   }
 
-  private getEngine(reportType: string): AnalyticsEngine {
-    const factory = ENGINE_MAP[reportType];
-    if (factory === undefined) {
-      throw new Error(`Unknown report type: ${reportType}`);
-    }
-    return factory();
-  }
-
-  private analyzeWithEngine(engine: AnalyticsEngine, data: readonly TradeData[]): InsightReport {
-    return engine.analyzeWithData(data);
+  private getEngine(type: string) {
+    const Ctor = ENGINE_MAP[type]
+    if (!Ctor) throw new Error(`Unknown report type: ${type}`)
+    return new Ctor()
   }
 }

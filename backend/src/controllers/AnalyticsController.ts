@@ -1,32 +1,26 @@
-import type { Request, Response } from 'express';
-import { AnalyticsService } from '../services/AnalyticsService';
+import type { Request, Response } from 'express'
+import type { AnalyticsService } from '../services/AnalyticsService'
 
-type RequestHandler = (request: Request, response: Response) => Promise<Response> | Response;
+type Handler = (req: Request, res: Response) => Promise<Response>
 
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(private readonly svc: AnalyticsService) {}
 
-  emotionPerformance: RequestHandler = async (request, response) => {
-    if (request.user === undefined) {
-      return response.status(401).json({ error: 'Authentication required.' });
-    }
-    const report = await this.analyticsService.getReport(request.user.userId, 'emotion-performance');
-    return response.status(200).json({ data: report });
-  };
+  emotionPerformance: Handler = async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required.' })
+    const report = await this.svc.getReport(req.user.userId, 'emotion-performance')
+    return res.status(200).json({ data: report })
+  }
 
-  timeOfDay: RequestHandler = async (request, response) => {
-    if (request.user === undefined) {
-      return response.status(401).json({ error: 'Authentication required.' });
-    }
-    const report = await this.analyticsService.getReport(request.user.userId, 'time-of-day');
-    return response.status(200).json({ data: report });
-  };
+  timeOfDay: Handler = async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required.' })
+    const report = await this.svc.getReport(req.user.userId, 'time-of-day')
+    return res.status(200).json({ data: report })
+  }
 
-  winRate: RequestHandler = async (request, response) => {
-    if (request.user === undefined) {
-      return response.status(401).json({ error: 'Authentication required.' });
-    }
-    const report = await this.analyticsService.getReport(request.user.userId, 'win-rate');
-    return response.status(200).json({ data: report });
-  };
+  winRate: Handler = async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required.' })
+    const report = await this.svc.getReport(req.user.userId, 'win-rate')
+    return res.status(200).json({ data: report })
+  }
 }

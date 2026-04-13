@@ -1,122 +1,42 @@
-import type { Request, Response } from 'express';
-import type { CreateEmotionDto, EmotionPhase, EmotionType } from '../dto/CreateEmotionDto';
-import { AppError } from '../errors/AppError';
-import { EmotionService } from '../services/EmotionService';
+import type { Request, Response } from 'express'
+import type { EmotionService } from '../services/EmotionService'
 
-type RequestHandler = (request: Request, response: Response) => Promise<Response> | Response;
+type Handler = (req: Request, res: Response) => Promise<Response>
 
 export class EmotionController {
-  constructor(private readonly emotionService: EmotionService) {}
+  constructor(private readonly svc: EmotionService) {}
 
-  createEmotion: RequestHandler = async (request, response) => {
+  createEmotion: Handler = async (req, res) => {
     try {
-      const body = request.body as Record<string, unknown>;
-      const input: CreateEmotionDto = {
-        tradeId: this.getRequiredString(body.tradeId, 'tradeId'),
-        phase: this.getRequiredPhase(body.phase),
-        emotionType: this.getRequiredEmotionType(body.emotionType),
-        intensity: this.getRequiredNumber(body.intensity, 'intensity'),
-        notes: this.getOptionalString(body.notes),
-        loggedAt: this.getOptionalDate(body.loggedAt),
-      };
+      const b = req.body as Record<string, unknown>
+      const input = {
+        tradeId: this.reqStr(b.tradeId), phase: this.reqEnum(b.phase, ['PRE', 'POST']) as 'PRE'|'POST',
+        emotionType: this.reqEnum(b.emotionType, ['FOMO','CONFIDENT','FEARFUL','GREEDY','ANXIOUS','NEUTRAL']) as any,
+        intensity: this.reqInt(b.intensity), notes: this.optStr(b.notes), loggedAt: this.optDate(b.loggedAt),
+      }
+      const created = await this.svc.createEmotion(input)
+      return res.status(201).json({ data: created })
+    } catch (e: unknown) { return this.err(res, e) }
+  }
 
-      const created = await this.emotionService.createEmotion(input);
-      return response.status(201).json({ data: created });
-    } catch (error: unknown) {
-      return this.handleError(response, error);
-    }
-  };
-
-  getEmotionsByTradeId: RequestHandler = async (request, response) => {
+  getEmotionsByTradeId: Handler = async (req, res) => {
     try {
-      const tradeId = this.getRequiredString(request.params.tradeId, 'tradeId');
-      const emotions = await this.emotionService.getEmotionsByTradeId(tradeId);
-      return response.status(200).json({ data: emotions });
-    } catch (error: unknown) {
-      return this.handleError(response, error);
-    }
-  };
-
-  private handleError(response: Response, error: unknown): Response {
-    if (error instanceof AppError) {
-      return response.status(error.statusCode).json({
-        error: error.message,
-      });
-    }
-
-    if (error instanceof Error) {
-      return response.status(400).json({
-        error: error.message,
-      });
-    }
-
-    return response.status(500).json({
-      error: 'An unexpected error occurred.',
-    });
+      const emotions = await this.svc.getEmotionsByTradeId(this.reqStr(req.params.tradeId))
+      return res.status(200).json({ data: emotions })
+    } catch (e: unknown) { return this.err(res, e) }
   }
 
-  private getRequiredString(value: unknown, fieldName: string): string {
-    if (typeof value !== 'string' || value.trim().length === 0) {
-      throw new Error(`${fieldName} must be a non-empty string.`);
-    }
-
-    return value.trim();
+  private reqStr(v: unknown): string { if (typeof v !== 'string' || !v.trim()) throw new Error('Field required.'); return v.trim() }
+  private reqEnum(v: unknown, vals: string[]): string { if (vals.includes(v as string)) return v as string; throw new Error(`Invalid value. Expected: ${vals.join(', ')}`) }
+  private reqInt(v: unknown): number { if (typeof v !== 'number' || !Number.isInteger(v)) throw new Error('Must be an integer'); return v }
+  private optStr(v: unknown): string | undefined { return typeof v === 'string' ? v : undefined }
+  private optDate(v: unknown): Date | undefined {
+    if (v === undefined) return undefined
+    if (typeof v !== 'string') throw new Error('Must be a date string')
+    const d = new Date(v); if (Number.isNaN(d.getTime())) throw new Error('Invalid date'); return d
   }
-
-  private getOptionalString(value: unknown): string | undefined {
-    if (typeof value !== 'string') {
-      return undefined;
-    }
-
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-  }
-
-  private getRequiredNumber(value: unknown, fieldName: string): number {
-    if (typeof value !== 'number' || Number.isNaN(value)) {
-      throw new Error(`${fieldName} must be a valid number.`);
-    }
-
-    return value;
-  }
-
-  private getOptionalDate(value: unknown): Date | undefined {
-    if (value === undefined) {
-      return undefined;
-    }
-
-    if (typeof value !== 'string') {
-      throw new Error('loggedAt must be a valid ISO date string.');
-    }
-
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-      throw new Error('loggedAt must be a valid ISO date string.');
-    }
-
-    return parsed;
-  }
-
-  private getRequiredPhase(value: unknown): EmotionPhase {
-    if (value === 'PRE' || value === 'POST') {
-      return value;
-    }
-
-    throw new Error('phase must be either PRE or POST.');
-  }
-
-  private getRequiredEmotionType(value: unknown): EmotionType {
-    if (
-      value === 'FOMO' ||
-      value === 'CONFIDENT' ||
-      value === 'FEARFUL' ||
-      value === 'GREEDY' ||
-      value === 'ANXIOUS' ||
-      value === 'NEUTRAL'
-    ) {
-      return value;
-    }
-
-    throw new Error('emotionType must be one of FOMO, CONFIDENT, FEARFUL, GREEDY, ANXIOUS, or NEUTRAL.');
+  private err(res: Response, e: unknown): Response {
+    if (e instanceof Error) { const sc = 'statusCode' in e ? (e as any).statusCode : 400; return res.status(sc).json({ error: e.message }) }
+    return res.status(500).json({ error: 'Unexpected error' })
   }
 }

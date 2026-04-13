@@ -1,46 +1,25 @@
-import type { Request, Response } from 'express';
-import type { ITradingAccountRepository } from '../repositories/interfaces/ITradingAccountRepository';
+import type { Request, Response } from 'express'
+import type { IAccountRepository } from '../repositories/AccountRepository'
 
-type RequestHandler = (
-  request: Request,
-  response: Response,
-) => Promise<Response> | Response;
+type Handler = (req: Request, res: Response) => Promise<Response>
 
 export class AccountController {
-  constructor(
-    private readonly tradingAccountRepository: ITradingAccountRepository,
-  ) {}
+  constructor(private readonly repo: IAccountRepository) {}
 
-  listAccounts: RequestHandler = async (request, response) => {
-    if (request.user === undefined) {
-      return response.status(401).json({ error: 'Authentication required.' });
-    }
-    const accounts = await this.tradingAccountRepository.findByUserId(request.user!.userId);
-    return response.status(200).json({ data: accounts });
-  };
+  listAccounts: Handler = async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required.' })
+    const accounts = await this.repo.findByUserId(req.user.userId)
+    return res.status(200).json({ data: accounts })
+  }
 
-  createAccount: RequestHandler = async (request, response) => {
-    if (request.user === undefined) {
-      return response.status(401).json({ error: 'Authentication required.' });
-    }
-
-    const body = request.body as Record<string, unknown>;
-
-    const name = typeof body.name === 'string' && body.name.trim().length > 0 ? body.name.trim() : undefined;
-    const currency = typeof body.currency === 'string' && body.currency.trim().length > 0 ? body.currency.trim() : 'USD';
-    const initialBalance = typeof body.initialBalance === 'number' && !Number.isNaN(body.initialBalance) ? body.initialBalance : 0;
-
-    if (name === undefined) {
-      return response.status(400).json({ error: 'name is required.' });
-    }
-
-    const account = await this.tradingAccountRepository.create({
-      userId: request.user.userId,
-      name,
-      currency,
-      balance: initialBalance,
-    });
-
-    return response.status(201).json({ data: account });
-  };
+  createAccount: Handler = async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required.' })
+    const b = req.body as Record<string, unknown>
+    const name = typeof b.name === 'string' && b.name.trim() ? b.name.trim() : undefined
+    const currency = typeof b.currency === 'string' && b.currency.trim() ? b.currency.trim() : 'USD'
+    const balance = typeof b.initialBalance === 'number' && !Number.isNaN(b.initialBalance) ? b.initialBalance : 0
+    if (!name) return res.status(400).json({ error: 'name required' })
+    const account = await this.repo.create({ userId: req.user.userId, name, currency, balance })
+    return res.status(201).json({ data: account })
+  }
 }
