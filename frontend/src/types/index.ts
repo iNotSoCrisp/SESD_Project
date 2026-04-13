@@ -19,6 +19,7 @@ export type EmotionPhase = 'PRE' | 'POST'
 
 export interface Trade {
   id: string
+  accountId: string
   symbol: string
   direction: Direction
   orderType: OrderType
@@ -27,7 +28,11 @@ export interface Trade {
   quantity: number
   enteredAt: string
   closedAt?: string
+  limitPrice?: number
+  stopPrice?: number
 }
+
+export interface PersistedTradeRecord extends Trade {}
 
 export interface EmotionLog {
   id: string
@@ -38,14 +43,8 @@ export interface EmotionLog {
   notes?: string
 }
 
-export interface Position {
-  exitPrice: number
-  pnl: number
-  pnlPercent: number
-}
-
 export interface AnalyticsInsight {
   type: string
-  insights: string[]
+  insights: { key: string; message: string }[]
   generatedAt: string
 }

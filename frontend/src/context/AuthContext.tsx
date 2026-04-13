@@ -20,11 +20,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.getItem('token')
   )
 
-  const login = (user: User, token: string) => {
-    setUser(user)
-    setToken(token)
-    localStorage.setItem('user', JSON.stringify(user))
-    localStorage.setItem('token', token)
+  const login = (u: User, t: string) => {
+    setUser(u)
+    setToken(t)
+    localStorage.setItem('user', JSON.stringify(u))
+    localStorage.setItem('token', t)
   }
 
   const logout = () => {
