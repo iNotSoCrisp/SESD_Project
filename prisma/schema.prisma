@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TradeDirection {
+  LONG
+  SHORT
+}
+
+enum OrderType {
+  MARKET
+  LIMIT
+  STOP
+}
+
+enum TradeStatus {
+  PENDING
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum EmotionPhase {
+  PRE
+  POST
+}
+
+enum EmotionType {
+  FOMO
+  CONFIDENT
+  FEARFUL
+  GREEDY
+  ANXIOUS
+  NEUTRAL
+}
+
+model User {
+  id               String            @id @default(cuid())
+  email            String            @unique
+  username         String            @unique
+  passwordHash     String            @map("password_hash")
+  firstName        String?           @map("first_name")
+  lastName         String?           @map("last_name")
+  tradingAccounts  TradingAccount[]
+  analyticsReports AnalyticsReport[]
+  tags             Tag[]
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model TradingAccount {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  name          String
+  broker        String?
+  accountNumber String?  @map("account_number")
+  currency      String   @default("USD") @map("base_currency")
+  balance       Decimal  @default(0) @db.Decimal(18, 4)
+  isActive      Boolean  @default(true) @map("is_active")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades        Trade[]
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("trading_accounts")
+}
+
+model Trade {
+  id               String         @id @default(cuid())
+  tradingAccountId String         @map("trading_account_id")
+  symbol           String
+  direction        TradeDirection
+  orderType        OrderType      @map("order_type")
+  status           TradeStatus    @default(PENDING)
+  quantity         Decimal        @db.Decimal(18, 8)
+  entryPrice       Decimal?       @map("entry_price") @db.Decimal(18, 8)
+  exitPrice        Decimal?       @map("exit_price") @db.Decimal(18, 8)
+  limitPrice       Decimal?       @map("limit_price") @db.Decimal(18, 8)
+  stopPrice        Decimal?       @map("stop_price") @db.Decimal(18, 8)
+  openedAt         DateTime?      @map("opened_at")
+  closedAt         DateTime?      @map("closed_at")
+  notes            String?
+  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+  position         Position?
+  emotionLogs      EmotionLog[]
+  tradeTags        TradeTag[]
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@index([tradingAccountId])
+  @@index([status])
+  @@index([symbol])
+  @@map("trades")
+}
+
+model Position {
+  id           String   @id @default(cuid())
+  tradeId      String   @unique @map("trade_id")
+  realizedPnl  Decimal? @map("realized_pnl") @db.Decimal(18, 8)
+  returnPct    Decimal? @map("return_pct") @db.Decimal(10, 4)
+  durationMins Int?     @map("duration_mins")
+  maxDrawdown  Decimal? @map("max_drawdown") @db.Decimal(18, 8)
+  maxProfit    Decimal? @map("max_profit") @db.Decimal(18, 8)
+  trade        Trade    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("positions")
+}
+
+model EmotionLog {
+  id          String       @id @default(cuid())
+  tradeId     String       @map("trade_id")
+  trade       Trade        @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  phase       EmotionPhase
+  emotionType EmotionType  @map("emotion_type")
+  intensity   Int
+  notes       String?
+  loggedAt    DateTime     @default(now()) @map("logged_at")
+
+  @@index([tradeId])
+  @@index([phase])
+  @@map("emotion_logs")
+}
+
+model AnalyticsReport {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  reportType  String   @map("report_type")
+  data        Json
+  isStale     Boolean  @default(true) @map("is_stale")
+  generatedAt DateTime @default(now()) @map("generated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, reportType])
+  @@index([userId])
+  @@map("analytics_reports")
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  name      String
+  color     String?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradeTags TradeTag[]
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("tags")
+}
+
+model TradeTag {
+  id        String   @id @default(cuid())
+  tradeId   String   @map("trade_id")
+  tagId     String   @map("tag_id")
+  trade     Trade    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([tradeId, tagId])
+  @@index([tradeId])
+  @@index([tagId])
+  @@map("trade_tags")
+}

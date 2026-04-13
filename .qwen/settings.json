@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx *)",
+      "Bash(timeout *)",
+      "Bash(true)",
+      "Bash(gtimeout *)",
+      "Bash(npm run *)",
+      "Bash(sleep *)",
+      "Bash(kill *)",
+      "Bash(wait)",
+      "Bash(npm create *)",
+      "Bash(npm install)",
+      "Bash(npm install *)",
+      "Bash(mkdir *)",
+      "Bash(rm *)",
+      "Bash(cd *)",
+      "Bash(curl *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  },
+  "$version": 3
+}
