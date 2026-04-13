@@ -1,5 +1,5 @@
 import client from './client'
-import { TradingAccount } from '../types'
+import type { TradingAccount } from '../types'
 
 export const getAccounts = () =>
   client.get<{ data: TradingAccount[] }>('/accounts')

@@ -1,5 +1,5 @@
 import client from './client'
-import { Trade, PersistedTradeRecord } from '../types'
+import type { Trade, PersistedTradeRecord } from '../types'
 
 type TradeRecord = Trade | PersistedTradeRecord
 

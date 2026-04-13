@@ -280,9 +280,9 @@ export default function MainPage() {
           <div className="space-y-8">
             {analyticsLoading ? <div className="text-center py-12 text-gray-500">Loading analytics...</div> : (
               <>
-                <AnalyticsSection title="Emotion vs Performance" data={emotionData} insights={emotionInsights} valueLabel="Avg P&L %" />
-                <AnalyticsSection title="Time of Day" data={timeData} insights={timeInsights} valueLabel="Win Rate %" />
-                <AnalyticsSection title="Win Rate by Symbol" data={winData} insights={winInsights} valueLabel="Win Rate %" />
+                <AnalyticsSection title="Emotion vs Performance" data={emotionData} insights={emotionInsights} />
+                <AnalyticsSection title="Time of Day" data={timeData} insights={timeInsights} />
+                <AnalyticsSection title="Win Rate by Symbol" data={winData} insights={winInsights} />
               </>
             )}
           </div>
@@ -323,7 +323,7 @@ function NewAccountForm({ onSubmit, onCancel }: { onSubmit: (n: string, c: strin
   )
 }
 
-function AnalyticsSection({ title, data, insights, valueLabel }: { title: string; data: { key: string; value: number }[]; insights: string[]; valueLabel: string }) {
+function AnalyticsSection({ title, data, insights }: { title: string; data: { key: string; value: number }[]; insights: string[] }) {
   if (data.length === 0) return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center text-gray-500">
       No data yet — close some trades first.

@@ -1,5 +1,5 @@
 import client from './client'
-import { User } from '../types'
+import type { User } from '../types'
 
 export const register = (email: string, username: string, password: string) =>
   client.post<{ data: { user: User; token: string } }>('/auth/register', { email, username, password })
