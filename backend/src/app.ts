@@ -4,25 +4,36 @@ import express from 'express'
 import { authRoutes } from './routes/authRoutes'
 import { tradeRoutes } from './routes/tradeRoutes'
 import { analyticsRoutes } from './routes/analyticsRoutes'
+import { PrismaClient } from '@prisma/client'
 
 dotenv.config()
 
-const app = express()
+async function main() {
+  const prisma = new PrismaClient()
+  await prisma.$connect()
+  await prisma.$executeRawUnsafe('SELECT 1')
+  await prisma.$disconnect()
+  console.log('Database connection verified')
 
-app.use(cors({
-  origin: ['http://localhost:5173', process.env.FRONTEND_URL ?? ''].filter(Boolean),
-  credentials: true,
-}))
-app.use(express.json())
+  const app = express()
 
-app.use('/api', authRoutes)
-app.use('/api', tradeRoutes)
-app.use('/api', analyticsRoutes)
+  app.use(cors({
+    origin: ['http://localhost:5173', process.env.FRONTEND_URL ?? ''].filter(Boolean),
+    credentials: true,
+  }))
+  app.use(express.json())
 
-app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }))
+  app.use('/api', authRoutes)
+  app.use('/api', tradeRoutes)
+  app.use('/api', analyticsRoutes)
 
-const port = Number(process.env.PORT ?? 3000)
-if (Number.isNaN(port)) throw new Error('PORT must be a number')
-app.listen(port, () => console.log(`Server running on port ${port}`))
+  app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }))
 
-export { app }
+  const PORT = process.env.PORT ?? 3000
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+}
+
+main().catch(err => {
+  console.error('Failed to initialize:', err)
+  process.exit(1)
+})
