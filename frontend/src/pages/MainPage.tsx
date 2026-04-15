@@ -167,27 +167,46 @@ export default function MainPage() {
       <header className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center gap-4 flex-wrap">
         <h1 className="text-xl font-bold text-blue-400">ShadowTrade</h1>
 
-        <select value={selectedAccountId ?? ''} onChange={e => setSelectedAccountId(e.target.value)}
-          className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none">
-          {accounts.map(a => <option key={a.id} value={a.id}>{a.name} (${a.balance.toFixed(2)})</option>)}
-        </select>
+        {user ? (
+          <>
+            <select value={selectedAccountId ?? ''} onChange={e => setSelectedAccountId(e.target.value)}
+              className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none">
+              {accounts.map(a => <option key={a.id} value={a.id}>{a.name} (${a.balance.toFixed(2)})</option>)}
+            </select>
 
-        <button onClick={() => setShowNewAccount(!showNewAccount)}
-          className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors">
-          + New Account
-        </button>
+            <button onClick={() => setShowNewAccount(!showNewAccount)}
+              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors">
+              + New Account
+            </button>
 
-        <div className="ml-auto flex items-center gap-3">
-          <span className="text-sm text-gray-400">{user?.email}</span>
-          <button onClick={() => { logout(); navigate('/login') }}
-            className="px-3 py-1.5 bg-red-900 hover:bg-red-800 rounded-lg text-sm transition-colors">
-            Logout
-          </button>
-        </div>
+            <div className="ml-auto flex items-center gap-3">
+              <span className="text-sm text-gray-400">{user?.email}</span>
+              <button onClick={() => { logout(); navigate('/login') }}
+                className="px-3 py-1.5 bg-red-900 hover:bg-red-800 rounded-lg text-sm transition-colors">
+                Logout
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <span className="text-sm text-gray-500 ml-auto">Guest mode — sign in for full access</span>
+            <button onClick={() => navigate('/login')}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition-colors">
+              Sign In
+            </button>
+          </>
+        )}
       </header>
 
+      {/* Guest Banner */}
+      {!user && (
+        <div className="bg-yellow-900/30 border-b border-yellow-800 px-4 py-3 text-center text-sm text-yellow-400">
+          You are exploring as a guest. <button onClick={() => navigate('/login')} className="underline font-semibold hover:text-yellow-300">Sign in</button> to create accounts, open trades, and track emotions.
+        </div>
+      )}
+
       {/* New Account Form */}
-      {showNewAccount && <NewAccountForm onSubmit={handleCreateAccount} onCancel={() => setShowNewAccount(false)} />}
+      {user && showNewAccount && <NewAccountForm onSubmit={handleCreateAccount} onCancel={() => setShowNewAccount(false)} />}
 
       {/* Tabs */}
       <div className="flex border-b border-gray-800 px-4">

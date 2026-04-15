@@ -88,6 +88,15 @@ export default function AuthPage() {
             {isLogin ? 'Register' : 'Sign In'}
           </button>
         </p>
+
+        <div className="mt-4 pt-4 border-t border-gray-800 text-center">
+          <button
+            onClick={() => navigate('/')}
+            className="text-gray-500 hover:text-gray-300 text-sm transition-colors"
+          >
+            Explore without an account →
+          </button>
+        </div>
       </div>
     </div>
   )
