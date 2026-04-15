@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: backend
     buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run prisma:generate && npm run build
-    startCommand: npx prisma db push --accept-data-loss && npm start
+    startCommand: chmod +x start.sh && ./start.sh
     envVars:
       - key: NODE_ENV
         value: production
