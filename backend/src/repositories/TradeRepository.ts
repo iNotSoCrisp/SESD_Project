@@ -53,7 +53,17 @@ export class TradeRepository implements ITradeRepository {
     const u = await prisma.trade.update({ where: { id }, data }); return this.toRecord(u)
   }
   async findByAccountId(accountId: string, filters?: TradeListFilters): Promise<readonly PersistedTradeRecord[]> {
-    return this.findMany({ ...(filters ?? {}), accountId })
+    const where: Record<string, unknown> = { tradingAccountId: accountId }
+    if (filters?.symbol) where.symbol = filters.symbol
+    if (filters?.status) where.status = filters.status
+    if (filters?.direction) where.direction = filters.direction
+    if (filters?.orderType) where.orderType = filters.orderType
+    const records = await prisma.trade.findMany({
+      where,
+      include: { position: true },
+      orderBy: { createdAt: 'desc' }
+    })
+    return records.map(r => this.toRecord(r))
   }
   async findByUserId(userId: string, filters?: TradeListFilters): Promise<readonly PersistedTradeRecord[]> {
     const where: Record<string, unknown> = { tradingAccount: { userId } }
@@ -67,10 +77,21 @@ export class TradeRepository implements ITradeRepository {
   async updateStatus(id: string, status: TradeStatus, closedAt?: Date): Promise<PersistedTradeRecord> {
     const u = await prisma.trade.update({ where: { id }, data: { status, ...(closedAt && { closedAt }) } }); return this.toRecord(u)
   }
-  private toRecord(r: { id: string; tradingAccountId: string; symbol: string; direction: 'LONG'|'SHORT'; orderType: 'MARKET'|'LIMIT'|'STOP'; quantity: import('@prisma/client').Prisma.Decimal; entryPrice: import('@prisma/client').Prisma.Decimal | null; status: 'PENDING'|'OPEN'|'CLOSED'|'CANCELLED'; openedAt: Date | null; closedAt: Date | null; limitPrice: import('@prisma/client').Prisma.Decimal | null; stopPrice: import('@prisma/client').Prisma.Decimal | null }): PersistedTradeRecord {
-    const base = { id: r.id, accountId: r.tradingAccountId, symbol: r.symbol, direction: r.direction, orderType: r.orderType, quantity: Number(r.quantity), entryPrice: r.entryPrice !== null ? Number(r.entryPrice) : 0, status: r.status, enteredAt: r.openedAt, closedAt: r.closedAt }
-    if (r.limitPrice !== null) return { ...base, limitPrice: Number(r.limitPrice) }
-    if (r.stopPrice !== null) return { ...base, stopPrice: Number(r.stopPrice) }
+  private toRecord(r: { id: string; tradingAccountId: string; symbol: string; direction: 'LONG'|'SHORT'; orderType: 'MARKET'|'LIMIT'|'STOP'; quantity: import('@prisma/client').Prisma.Decimal; entryPrice: import('@prisma/client').Prisma.Decimal | null; status: 'PENDING'|'OPEN'|'CLOSED'|'CANCELLED'; openedAt: Date | null; closedAt: Date | null; limitPrice: import('@prisma/client').Prisma.Decimal | null; stopPrice: import('@prisma/client').Prisma.Decimal | null; position?: { realizedPnl: import('@prisma/client').Prisma.Decimal | null; returnPct: import('@prisma/client').Prisma.Decimal | null } | null }): PersistedTradeRecord {
+    const base: PersistedTradeRecord = {
+      id: r.id, accountId: r.tradingAccountId, symbol: r.symbol, direction: r.direction,
+      orderType: r.orderType, quantity: Number(r.quantity),
+      entryPrice: r.entryPrice !== null ? Number(r.entryPrice) : 0,
+      status: r.status, enteredAt: r.openedAt, closedAt: r.closedAt,
+      ...(r.limitPrice !== null && { limitPrice: Number(r.limitPrice) }),
+      ...(r.stopPrice !== null && { stopPrice: Number(r.stopPrice) }),
+      ...(r.position != null && {
+        position: {
+          realizedPnl: r.position.realizedPnl !== null ? Number(r.position.realizedPnl) : null,
+          returnPct: r.position.returnPct !== null ? Number(r.position.returnPct) : null,
+        }
+      }),
+    }
     return base
   }
 }

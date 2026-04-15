@@ -22,7 +22,8 @@ export type TradeCreationParams = MarketTradeCreationParams | LimitTradeCreation
 
 export interface MarketData {
   symbol: string; price: number; currentPrice: number
-  bidPrice: number; askPrice: number; open: number; high: number; low: number; volume: number; timestamp: Date
+  bidPrice: number; askPrice: number; open: number; high: number; low: number; volume: number
+  change: number; changePercent: number; timestamp: Date
 }
 
 export interface TradeResult {
@@ -120,6 +121,7 @@ export interface PersistedTradeRecord {
   readonly quantity: number; readonly entryPrice: number; readonly status: TradeStatus
   readonly enteredAt: Date | null; readonly closedAt: Date | null
   readonly limitPrice?: number; readonly stopPrice?: number
+  readonly position?: { readonly realizedPnl: number | null; readonly returnPct: number | null }
 }
 
 export interface TradeListFilters {

@@ -4,4 +4,11 @@ body {
   background-color: #030712;
   color: #f3f4f6;
   min-height: 100vh;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #030712; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4b5563; }

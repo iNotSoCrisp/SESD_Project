@@ -17,6 +17,11 @@ export type TradeStatus = 'PENDING' | 'OPEN' | 'CLOSED' | 'CANCELLED'
 export type EmotionType = 'FOMO' | 'CONFIDENT' | 'FEARFUL' | 'GREEDY' | 'ANXIOUS' | 'NEUTRAL'
 export type EmotionPhase = 'PRE' | 'POST'
 
+export interface Position {
+  realizedPnl: number | null
+  returnPct: number | null
+}
+
 export interface Trade {
   id: string
   accountId: string
@@ -30,6 +35,7 @@ export interface Trade {
   closedAt?: string
   limitPrice?: number
   stopPrice?: number
+  position?: Position
 }
 
 export interface PersistedTradeRecord extends Trade {}
@@ -47,4 +53,19 @@ export interface AnalyticsInsight {
   type: string
   insights: { key: string; message: string }[]
   generatedAt: string
+}
+
+export interface MarketQuote {
+  symbol: string
+  price: number
+  currentPrice: number
+  bidPrice: number
+  askPrice: number
+  open: number
+  high: number
+  low: number
+  volume: number
+  change: number
+  changePercent: number
+  timestamp: string
 }

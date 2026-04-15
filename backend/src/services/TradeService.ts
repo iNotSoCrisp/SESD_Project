@@ -11,14 +11,33 @@ import type { ITradeRepository, IPositionRepository } from '../repositories/Trad
 import type { IAccountRepository, IAnalyticsReportRepository } from '../repositories/AccountRepository'
 
 // ─── Market Data Services ────────────────────────────────────────────────────
-const BASE_PRICES: Record<string, number> = { AAPL: 175, BTC: 45000, ETH: 2400, TSLA: 190, MSFT: 420, GOOGL: 155 }
+const BASE_PRICES: Record<string, number> = {
+  AAPL: 178.50, MSFT: 378.20, GOOGL: 141.80, TSLA: 248.50,
+  AMZN: 182.30, NVDA: 875.40, META: 505.60,
+  BTC: 67500, ETH: 3200, SOL: 145.20,
+}
 
 class MockMarketData implements IMarketDataService {
   async getPrice(symbol: string): Promise<MarketData> {
-    const s = symbol.trim().toUpperCase(); const base = BASE_PRICES[s] ?? 100
-    const nf = 1 + (Math.random() * 0.04 - 0.02); const price = Number((base * nf).toFixed(2))
+    const s = symbol.trim().toUpperCase()
+    const base = BASE_PRICES[s] ?? 100
+    const noise = 1 + (Math.random() * 0.04 - 0.02)
+    const price = Number((base * noise).toFixed(2))
     const spread = Number((price * 0.001).toFixed(2))
-    return { symbol: s, price, currentPrice: price, bidPrice: Number((price - spread).toFixed(2)), askPrice: Number((price + spread).toFixed(2)), open: Number((price * (1 + Math.random() * 0.02 - 0.01)).toFixed(2)), high: price, low: price, volume: Math.floor(Math.random() * 4990000 + 10000), timestamp: new Date() }
+    const open = Number((price * (1 + Math.random() * 0.02 - 0.01)).toFixed(2))
+    const high = Number((price * (1 + Math.random() * 0.01)).toFixed(2))
+    const low = Number((price * (1 - Math.random() * 0.01)).toFixed(2))
+    const change = Number((price - open).toFixed(2))
+    const changePercent = Number(((change / open) * 100).toFixed(2))
+    return {
+      symbol: s, price, currentPrice: price,
+      bidPrice: Number((price - spread).toFixed(2)),
+      askPrice: Number((price + spread).toFixed(2)),
+      open, high, low,
+      volume: Math.floor(Math.random() * 9990000 + 100000),
+      change, changePercent,
+      timestamp: new Date(),
+    }
   }
   async getMarketData(s: string): Promise<MarketData> { return this.getPrice(s) }
 }
@@ -33,7 +52,10 @@ class AlphaVantageMarketData implements IMarketDataService {
     const json = await res.json() as Record<string, any>
     const quote = json['Global Quote']; if (!quote) throw new Error('No quote data')
     const price = Number(quote['05. price']); const spread = Number((price * 0.001).toFixed(2))
-    return { symbol: quote['01. symbol']?.trim().toUpperCase() || s, price, currentPrice: price, bidPrice: Number((price - spread).toFixed(2)), askPrice: Number((price + spread).toFixed(2)), open: Number(quote['02. open']), high: Number(quote['03. high']), low: Number(quote['04. low']), volume: Number(quote['06. volume']), timestamp: new Date() }
+    const open = Number(quote['02. open'])
+    const change = Number((price - open).toFixed(2))
+    const changePercent = Number(((change / open) * 100).toFixed(2))
+    return { symbol: quote['01. symbol']?.trim().toUpperCase() || s, price, currentPrice: price, bidPrice: Number((price - spread).toFixed(2)), askPrice: Number((price + spread).toFixed(2)), open, high: Number(quote['03. high']), low: Number(quote['04. low']), volume: Number(quote['06. volume']), change, changePercent, timestamp: new Date() }
   }
   async getMarketData(s: string): Promise<MarketData> { return this.getPrice(s) }
 }
