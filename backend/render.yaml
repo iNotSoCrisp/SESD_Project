@@ -3,7 +3,7 @@ services:
     name: shadowtrade-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
+    buildCommand: NPM_CONFIG_PRODUCTION=false npm install && npm run prisma:generate && npm run build
     startCommand: npm run prisma:migrate && npm start
     envVars:
       - key: NODE_ENV
