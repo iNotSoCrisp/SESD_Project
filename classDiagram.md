@@ -102,7 +102,7 @@ classDiagram
     %% ── Observer ──────────────────────────────────────────────────────────────
     class TradeEventObserver {
         <<interface>>
-        +handle(event: TradeEvent) Promise~void~
+        +onTradeEvent(event: TradeEvent) Promise~void~
     }
     class TradeEventPublisher {
         -observers: TradeEventObserver[]
@@ -110,13 +110,13 @@ classDiagram
         +notify(event) Promise~void~
     }
     class PnLCalculatorObserver {
-        +handle(event) Promise~void~
+        +onTradeEvent(event) Promise~void~
     }
     class AnalyticsTriggerObserver {
-        +handle(event) Promise~void~
+        +onTradeEvent(event) Promise~void~
     }
     class NotificationObserver {
-        +handle(event) Promise~void~
+        +onTradeEvent(event) Promise~void~
     }
     TradeEventObserver <|.. PnLCalculatorObserver
     TradeEventObserver <|.. AnalyticsTriggerObserver

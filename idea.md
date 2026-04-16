@@ -28,7 +28,11 @@ ShadowTrade is a paper trading platform that bridges the gap between simulated t
 | Auth | JWT (jsonwebtoken) |
 | Market Data | AlphaVantage API (Mock fallback) |
 | Dev Tooling | concurrently, ts-node-dev |
-| Deployment | Vercel (frontend), Railway (backend) |
+| Deployment | Vercel (frontend), Render (backend) |
+
+## Live URLs
+
+- Backend (Render): https://sesd-project-tzfx.onrender.com
 
 ## Architecture Overview
 

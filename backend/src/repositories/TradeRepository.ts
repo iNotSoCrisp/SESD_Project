@@ -25,7 +25,14 @@ export class TradeRepository implements ITradeRepository {
     if (filters.status) where.status = filters.status
     if (filters.direction) where.direction = filters.direction
     if (filters.orderType) where.orderType = filters.orderType
-    const records = await prisma.trade.findMany({ where, orderBy: { createdAt: 'desc' } })
+    const records = await prisma.trade.findMany({
+      where,
+      include: {
+        position: true,
+        emotionLogs: true
+      },
+      orderBy: { createdAt: 'desc' }
+    })
     return records.map(r => this.toRecord(r))
   }
   async findById(id: string): Promise<PersistedTradeRecord | null> {

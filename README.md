@@ -3,8 +3,8 @@
 Paper trading platform with emotion and psychology tracking.
 
 ## Live
-- Frontend: https://[vercel-url]
-- Backend: https://[railway-url]
+- Frontend: (set after Vercel deployment)
+- Backend: https://sesd-project-tzfx.onrender.com
 
 ## Setup
 
