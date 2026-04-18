@@ -42,27 +42,30 @@ class MockMarketData implements IMarketDataService {
   async getMarketData(s: string): Promise<MarketData> { return this.getPrice(s) }
 }
 
-class AlphaVantageMarketData implements IMarketDataService {
+class FinnhubMarketData implements IMarketDataService {
   constructor(private readonly apiKey: string) {}
   async getPrice(symbol: string): Promise<MarketData> {
     const s = symbol.trim().toUpperCase(); if (!s) throw new Error('symbol required')
-    if (!this.apiKey.trim()) throw new Error('Alpha Vantage API key not configured.')
-    const url = new URL('https://www.alphavantage.co/query'); url.searchParams.set('function', 'GLOBAL_QUOTE'); url.searchParams.set('symbol', s); url.searchParams.set('apikey', this.apiKey)
-    const res = await fetch(url); if (!res.ok) throw new Error(`Alpha Vantage failed: ${res.status}`)
+    if (!this.apiKey.trim()) throw new Error('Finnhub API key not configured.')
+    const url = new URL('https://finnhub.io/api/v1/quote'); url.searchParams.set('symbol', s); url.searchParams.set('token', this.apiKey)
+    const res = await fetch(url); if (!res.ok) throw new Error(`Finnhub failed: ${res.status}`)
     const json = await res.json() as Record<string, any>
-    const quote = json['Global Quote']; if (!quote) throw new Error('No quote data')
-    const price = Number(quote['05. price']); const spread = Number((price * 0.001).toFixed(2))
-    const open = Number(quote['02. open'])
-    const change = Number((price - open).toFixed(2))
-    const changePercent = Number(((change / open) * 100).toFixed(2))
-    return { symbol: quote['01. symbol']?.trim().toUpperCase() || s, price, currentPrice: price, bidPrice: Number((price - spread).toFixed(2)), askPrice: Number((price + spread).toFixed(2)), open, high: Number(quote['03. high']), low: Number(quote['04. low']), volume: Number(quote['06. volume']), change, changePercent, timestamp: new Date() }
+    
+    if (json.c === undefined || json.c === 0) throw new Error('No quote data found for symbol')
+    
+    const price = Number(json.c); const spread = Number((price * 0.001).toFixed(2))
+    const open = Number(json.o)
+    const change = Number(json.d)
+    const changePercent = Number(json.dp)
+    
+    return { symbol: s, price, currentPrice: price, bidPrice: Number((price - spread).toFixed(2)), askPrice: Number((price + spread).toFixed(2)), open, high: Number(json.h), low: Number(json.l), volume: 0, change, changePercent, timestamp: new Date() }
   }
   async getMarketData(s: string): Promise<MarketData> { return this.getPrice(s) }
 }
 
 export function createMarketDataService(): IMarketDataService {
-  const key = process.env.ALPHA_VANTAGE_API_KEY
-  return (typeof key === 'string' && key.trim().length > 0) ? new AlphaVantageMarketData(key) : new MockMarketData()
+  const key = process.env.FINNHUB_API_KEY || 'd7i0ht9r01qu8vfmu5f0d7i0ht9r01qu8vfmu5fg'
+  return new FinnhubMarketData(key)
 }
 
 // ─── Trade Service ───────────────────────────────────────────────────────────
