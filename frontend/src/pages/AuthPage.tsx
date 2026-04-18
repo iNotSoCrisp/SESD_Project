@@ -24,8 +24,8 @@ export default function AuthPage() {
       const { user, token } = res.data.data
       authLogin(user, token)
       navigate('/')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
