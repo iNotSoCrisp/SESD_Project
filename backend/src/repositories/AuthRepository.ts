@@ -7,12 +7,16 @@ const SALT_ROUNDS = 12
 
 export interface IAuthRepository {
   findByEmail(email: string): Promise<UserRecord | null>
+  findByUsername(username: string): Promise<UserRecord | null>
   create(data: CreateUserDto): Promise<UserRecord>
 }
 
 export class AuthRepository implements IAuthRepository {
   async findByEmail(email: string): Promise<UserRecord | null> {
     const r = await prisma.user.findUnique({ where: { email } }); return r ? this.toRecord(r) : null
+  }
+  async findByUsername(username: string): Promise<UserRecord | null> {
+    const r = await prisma.user.findUnique({ where: { username } }); return r ? this.toRecord(r) : null
   }
   async create(data: CreateUserDto): Promise<UserRecord> {
     const passwordHash = await bcrypt.hash(data.password, SALT_ROUNDS)

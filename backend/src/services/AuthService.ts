@@ -11,8 +11,10 @@ export class AuthService {
   ) {}
 
   async register(email: string, username: string, password: string): Promise<AuthResult> {
-    const existing = await this.authRepo.findByEmail(email)
-    if (existing) throw new ConflictError('An account with this email already exists.')
+    const existingEmail = await this.authRepo.findByEmail(email)
+    if (existingEmail) throw new ConflictError('An account with this email already exists.')
+    const existingUsername = await this.authRepo.findByUsername(username)
+    if (existingUsername) throw new ConflictError('An account with this username already exists.')
     const user = await this.authRepo.create({ email, username, password })
     return { user: this.toPublic(user), token: this.sign(user) }
   }
