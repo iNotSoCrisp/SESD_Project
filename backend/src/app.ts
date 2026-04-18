@@ -17,8 +17,9 @@ async function main() {
 
   const app = express()
 
+  const frontendUrl = (process.env.FRONTEND_URL ?? '').replace(/\/$/, '')
   app.use(cors({
-    origin: ['http://localhost:5173', process.env.FRONTEND_URL ?? ''].filter(Boolean),
+    origin: ['http://localhost:5173', frontendUrl].filter(Boolean),
     credentials: true,
   }))
   app.use(express.json())
