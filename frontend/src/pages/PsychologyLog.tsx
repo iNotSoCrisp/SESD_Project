@@ -176,7 +176,7 @@ export default function PsychologyLog() {
 
                              return (
                                <tr key={t.id} className="border-b border-border-subtle/50 hover:bg-surface-elevated transition-colors">
-                                 <td className="p-4 font-mono text-xs text-text-secondary">{new Date(t.createdAt).toLocaleString()}</td>
+                                 <td className="p-4 font-mono text-xs text-text-secondary">{new Date(t.enteredAt).toLocaleString()}</td>
                                  <td className="p-4 font-mono font-bold text-white">{t.symbol}</td>
                                  <td className="p-4">
                                     <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${t.direction === 'LONG' ? 'bg-bullish text-black' : 'bg-bearish text-white'}`}>{t.direction}</span>

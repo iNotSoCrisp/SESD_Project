@@ -10,7 +10,7 @@ const SECTORS = ['All', 'Technology', 'Finance', 'Healthcare', 'Energy', 'Automo
 export default function Dashboard() {
   const { stocks, crypto, loadingStocks, rateLimitActive, rateLimitTimer } = useQuotes()
   const [activeTab, setActiveTab] = useState('All')
-  const navigate = useNavigate()
+  
 
   // Calculate Metrics
   const metrics = useMemo(() => {

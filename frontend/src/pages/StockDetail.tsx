@@ -4,7 +4,8 @@ import { ArrowLeft, Star, TrendingUp, TrendingDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getAccounts } from '../api/accounts'
 import { getTrades, openTrade, closeTrade } from '../api/trades'
-import { getQuote, QuoteExtended } from '../services/finnhub'
+import { getQuote }
+import type { QuoteExtended } from '../services/finnhub'
 import type { TradingAccount, Trade } from '../types'
 
 import Layout from '../components/Layout'
@@ -19,7 +20,7 @@ export default function StockDetail() {
   
   // Data State
   const [quote, setQuote] = useState<QuoteExtended | null>(null)
-  const [loading, setLoading] = useState(true)
+  
   
   // Terminal Logic
   const [accounts, setAccounts] = useState<TradingAccount[]>([])
@@ -64,10 +65,10 @@ export default function StockDetail() {
             changePercent: q.pc ? ((q.c - q.pc) / q.pc) * 100 : 0,
             timestamp: new Date().toISOString(), bidPrice: 0, askPrice: 0, volume: 0
           })
-          setLoading(false)
+          
         }
       } catch (e) {
-        if (active) setLoading(false)
+        if (active) 
       }
     }
 

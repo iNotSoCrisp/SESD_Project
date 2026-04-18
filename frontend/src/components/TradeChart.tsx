@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, useMemo } from 'react'
-import { createChart, IChartApi, ISeriesApi, Time } from 'lightweight-charts'
+import { useEffect, useRef, useState } from 'react'
+import { createChart } from "lightweight-charts";
+import type { IChartApi, ISeriesApi, Time } from 'lightweight-charts'
 import { getCandles } from '../services/finnhub'
 
 interface TradeChartProps {

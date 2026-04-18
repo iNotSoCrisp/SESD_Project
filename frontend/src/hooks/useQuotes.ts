@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { STOCKS, CRYPTO } from '../data/watchlist'
-import { getAllQuotes, QuoteExtended } from '../services/finnhub'
+import { getAllQuotes }
+import type { QuoteExtended } from '../services/finnhub'
 
 export function useQuotes() {
   const [stocks, setStocks] = useState<QuoteExtended[]>([])
