@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import React from 'react'
+import ErrorBoundary from './components/ErrorBoundary'
 
 import AuthPage from './pages/AuthPage'
 import PlaceholderPage from './pages/PlaceholderPage'
@@ -18,26 +19,28 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<AuthPage />} />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/stock/:symbol" element={<ProtectedRoute><StockDetail /></ProtectedRoute>} />
-          <Route path="/movers" element={<ProtectedRoute><GainersLosers /></ProtectedRoute>} />
-          <Route path="/heatmap" element={<ProtectedRoute><Heatmap /></ProtectedRoute>} />
-          <Route path="/crypto" element={<ProtectedRoute><CryptoPage /></ProtectedRoute>} />
-          <Route path="/psychology" element={<ProtectedRoute><PsychologyLog /></ProtectedRoute>} />
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<AuthPage />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-          <Route path="/portfolio" element={<ProtectedRoute><PlaceholderPage path="/portfolio" /></ProtectedRoute>} />
-          <Route path="/history" element={<ProtectedRoute><PlaceholderPage path="/history" /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><PlaceholderPage path="/settings" /></ProtectedRoute>} />
-          
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/stock/:symbol" element={<ProtectedRoute><StockDetail /></ProtectedRoute>} />
+            <Route path="/movers" element={<ProtectedRoute><GainersLosers /></ProtectedRoute>} />
+            <Route path="/heatmap" element={<ProtectedRoute><Heatmap /></ProtectedRoute>} />
+            <Route path="/crypto" element={<ProtectedRoute><CryptoPage /></ProtectedRoute>} />
+            <Route path="/psychology" element={<ProtectedRoute><PsychologyLog /></ProtectedRoute>} />
+
+            <Route path="/portfolio" element={<ProtectedRoute><PlaceholderPage path="/portfolio" /></ProtectedRoute>} />
+            <Route path="/history" element={<ProtectedRoute><PlaceholderPage path="/history" /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><PlaceholderPage path="/settings" /></ProtectedRoute>} />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }

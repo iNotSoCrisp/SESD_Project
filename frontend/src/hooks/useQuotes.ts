@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { STOCKS, CRYPTO } from '../data/watchlist'
-import { getAllQuotes }
+import { getAllQuotes } from '../services/finnhub'
 import type { QuoteExtended } from '../services/finnhub'
 
 export function useQuotes() {

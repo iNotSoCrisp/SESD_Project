@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { TrendingUp, TrendingDown, AlertCircle } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import Layout from '../components/Layout'
 import StockCard from '../components/StockCard'
 import { useQuotes } from '../hooks/useQuotes'
@@ -10,7 +9,6 @@ const SECTORS = ['All', 'Technology', 'Finance', 'Healthcare', 'Energy', 'Automo
 export default function Dashboard() {
   const { stocks, crypto, loadingStocks, rateLimitActive, rateLimitTimer } = useQuotes()
   const [activeTab, setActiveTab] = useState('All')
-  
 
   // Calculate Metrics
   const metrics = useMemo(() => {

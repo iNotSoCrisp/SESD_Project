@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Star, TrendingUp, TrendingDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getAccounts } from '../api/accounts'
 import { getTrades, openTrade, closeTrade } from '../api/trades'
-import { getQuote }
+import { getQuote } from '../services/finnhub'
 import type { QuoteExtended } from '../services/finnhub'
 import type { TradingAccount, Trade } from '../types'
 
@@ -60,15 +60,14 @@ export default function StockDetail() {
         if (active) {
           setQuote({
             symbol,
-            price: q.c, currentPrice: q.c, 
+            price: q.c, currentPrice: q.c,
             high: q.h, low: q.l, open: q.o, change: q.c - q.pc,
             changePercent: q.pc ? ((q.c - q.pc) / q.pc) * 100 : 0,
             timestamp: new Date().toISOString(), bidPrice: 0, askPrice: 0, volume: 0
           })
-          
         }
-      } catch (e) {
-        if (active) 
+      } catch (_e) {
+        // silently ignore quote fetch errors
       }
     }
 
