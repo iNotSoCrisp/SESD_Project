@@ -87,6 +87,11 @@ export class TradeService {
     const market = await this.d.marketData.getMarketData(input.symbol)
     const entryPrice = input.orderType === 'MARKET' ? market.askPrice : (input.orderType === 'LIMIT' ? input.limitPrice! : input.stopPrice!)
 
+    const estimatedCostBasis = entryPrice * input.quantity
+    if (estimatedCostBasis > account.balance) {
+      throw new Error('Insufficient purchasing power.')
+    }
+
     const params: TradeCreationParams = {
       id: `trade_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
       accountId: input.accountId, symbol: input.symbol.toUpperCase(), direction: input.direction,
@@ -100,6 +105,9 @@ export class TradeService {
     const execution = ctx.executeOrder(trade, market)
 
     if (execution.executed) {
+      const actualCostBasis = (execution.executionPrice ?? entryPrice) * input.quantity
+      await this.d.accountRepo.updateBalance(account.id, account.balance - actualCostBasis)
+
       getState('PENDING').open({ tradeId: trade.id })
       await this.d.publisher.notify({ type: 'TRADE_OPENED', tradeId: trade.id, status: 'OPEN', occurredAt: new Date(), metadata: { symbol: input.symbol, accountId: input.accountId } })
     }

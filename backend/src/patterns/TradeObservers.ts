@@ -47,6 +47,7 @@ export class PnLCalculatorObserver implements TradeEventObserver {
     const pnlPercent = costBasis === 0 ? 0 : (pnl / costBasis) * 100
     const durationMins = trade.enteredAt && trade.closedAt ? Math.max(0, Math.round((trade.closedAt.getTime() - trade.enteredAt.getTime()) / 60000)) : undefined
     await this.positionRepo.create({ tradeId: trade.id, realizedPnl: pnl, returnPct: pnlPercent, ...(durationMins !== undefined && { durationMins }) })
+    await this.accountRepo.updateBalance(account.id, account.balance + costBasis + pnl)
   }
 }
 
