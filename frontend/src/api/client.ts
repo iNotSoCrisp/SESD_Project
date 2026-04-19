@@ -10,13 +10,22 @@ client.interceptors.request.use(config => {
   return config
 })
 
+// Instead of hard-redirecting on 401 (which wipes React state and causes
+// jarring full-page reloads), we dispatch a custom event. The AuthContext
+// listens for this and gracefully logs the user out via React state only.
 client.interceptors.response.use(
   res => res,
   err => {
-    const isAuthRoute = ['/login', '/register'].some(p => window.location.pathname.startsWith(p))
-    if (err.response?.status === 401 && !isAuthRoute) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
+    const status = err.response?.status
+    if (status === 401) {
+      const isAuthPage = ['/login', '/register'].some(p =>
+        window.location.pathname.startsWith(p)
+      )
+      if (!isAuthPage) {
+        // Signal the AuthContext to clear auth state.
+        // This is a soft logout — no hard page refresh.
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'))
+      }
     }
     return Promise.reject(err)
   }

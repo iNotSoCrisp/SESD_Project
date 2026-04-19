@@ -42,10 +42,11 @@ const JWT_SECRET = process.env.JWT_SECRET ?? ''
 
 export function authenticate(secret?: string) {
   const s = secret ?? JWT_SECRET
-  return (request: Request, _response: Response, next: NextFunction): void => {
+  return (request: Request, response: Response, next: NextFunction): void => {
     const authHeader = request.headers.authorization
     if (authHeader === undefined || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedError('Missing or invalid Authorization header.')
+      next(new UnauthorizedError('Missing or invalid Authorization header.'))
+      return
     }
     const token = authHeader.slice(7)
     try {
@@ -53,7 +54,7 @@ export function authenticate(secret?: string) {
       request.user = decoded
       next()
     } catch {
-      throw new UnauthorizedError('Invalid or expired token.')
+      next(new UnauthorizedError('Invalid or expired token.'))
     }
   }
 }

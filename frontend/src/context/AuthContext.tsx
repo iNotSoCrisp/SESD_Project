@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import type { User } from '../types'
 
 interface AuthContextType {
@@ -33,6 +33,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('user')
     localStorage.removeItem('token')
   }
+
+  // Listen for 401 signals from the Axios interceptor (soft logout)
+  useEffect(() => {
+    const handle = () => logout()
+    window.addEventListener('auth:unauthorized', handle)
+    return () => window.removeEventListener('auth:unauthorized', handle)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token }}>
