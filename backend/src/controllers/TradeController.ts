@@ -24,7 +24,8 @@ export class TradeController {
         quantity: this.reqNum(b.quantity),
         ...(this.optNum(b.limitPrice) !== undefined && { limitPrice: this.optNum(b.limitPrice) }),
         ...(this.optNum(b.stopPrice) !== undefined && { stopPrice: this.optNum(b.stopPrice) }),
-      } as { accountId: string; symbol: string; direction: 'LONG'|'SHORT'; orderType: 'MARKET'|'LIMIT'|'STOP'; quantity: number; limitPrice?: number; stopPrice?: number }
+        ...(typeof b.emotion === 'string' && b.emotion.trim() && { emotion: b.emotion.trim() }),
+      } as { accountId: string; symbol: string; direction: 'LONG'|'SHORT'; orderType: 'MARKET'|'LIMIT'|'STOP'; quantity: number; limitPrice?: number; stopPrice?: number; emotion?: string }
       const result = await this.svc.openTrade(input)
       return res.status(201).json({ data: result })
     } catch (e: unknown) { return this.err(res, e) }
@@ -33,6 +34,18 @@ export class TradeController {
   closeTrade: Handler = async (req, res) => {
     try {
       const result = await this.svc.closeTrade(this.reqStr(req.params.id))
+      return res.status(200).json({ data: result })
+    } catch (e: unknown) { return this.err(res, e) }
+  }
+
+  sellTrade: Handler = async (req, res) => {
+    try {
+      const b = req.body as Record<string, unknown>
+      const accountId = this.reqStr(b.accountId)
+      const symbol = (this.reqStr(b.symbol) as string).toUpperCase()
+      const quantity = this.reqNum(b.quantity)
+      const emotion = typeof b.emotion === 'string' ? b.emotion.trim() : undefined
+      const result = await this.svc.sellTrade(accountId, symbol, quantity, emotion)
       return res.status(200).json({ data: result })
     } catch (e: unknown) { return this.err(res, e) }
   }

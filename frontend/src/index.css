@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 @theme {
-  --color-base: #0D0E11;
+  --color-base: #0B0D13;
   --color-surface: #131722;
   --color-surface-elevated: #1C2030;
-  
-  --color-border-subtle: #2A2E39;
+
+  --color-border-subtle: #1E2230;
   --color-border-active: #363A48;
 
   --color-accent: #2962FF;
@@ -30,7 +30,7 @@
 }
 
 body {
-  background-color: var(--color-base);
+  background-color: #0B0D13;
   color: var(--color-text-primary);
   min-height: 100vh;
   font-family: var(--font-inter);
@@ -38,11 +38,216 @@ body {
 
 /* Scrollbar styling */
 ::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--color-base); }
-::-webkit-scrollbar-thumb { background: var(--color-border-subtle); border-radius: 2px; }
+::-webkit-scrollbar-track { background: #0B0D13; }
+::-webkit-scrollbar-thumb { background: #2A2E39; border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-border-active); }
+
+/* Card elevation */
+.card-surface {
+  background: #131722;
+  border: 1px solid #1E2230;
+  border-radius: 6px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
 
 /* Global Utilities */
 .shadow-accent-glow {
   box-shadow: 0 0 0 1px var(--color-accent), 0 0 24px rgba(41,98,255,0.1);
 }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Shimmer skeleton animation */
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #1C2030 25%, #253040 50%, #1C2030 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+/* Fade-in for data cards */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fade-in { animation: fadeIn 200ms ease forwards; }
+
+/* Toggle switch */
+.toggle {
+  width: 44px; height: 24px; border-radius: 12px;
+  position: relative; cursor: pointer;
+  transition: background 200ms ease;
+  flex-shrink: 0;
+}
+.toggle::after {
+  content: '';
+  position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px; border-radius: 50%;
+  transition: transform 200ms ease, background 200ms ease;
+}
+.toggle-off { background: #2A2E39; }
+.toggle-off::after { background: #787B86; }
+.toggle-on { background: #2962FF; }
+.toggle-on::after { background: #FFFFFF; transform: translateX(20px); }
+
+/* ═══════════════════════════════════════════════
+   VISUAL UPGRADES — Noise, Flash, Glow, Motion
+   ═══════════════════════════════════════════════ */
+
+/* 1 — Background Noise Texture */
+.noise-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* 2 — Price Flash Animations */
+@keyframes flashGreen {
+  0%   { color: #26A69A; }
+  100% { color: #D1D4DC; }
+}
+@keyframes flashRed {
+  0%   { color: #EF5350; }
+  100% { color: #D1D4DC; }
+}
+.price-flash-up   { animation: flashGreen 600ms ease-out; }
+.price-flash-down { animation: flashRed 600ms ease-out; }
+
+/* 3 — Card Hover Glow */
+.card-glow-up {
+  transition: box-shadow 200ms ease, background 150ms ease, transform 150ms ease;
+}
+.card-glow-up:hover {
+  box-shadow: 0 0 0 1px rgba(38,166,154,0.3), 0 4px 24px rgba(38,166,154,0.06);
+}
+.card-glow-down {
+  transition: box-shadow 200ms ease, background 150ms ease, transform 150ms ease;
+}
+.card-glow-down:hover {
+  box-shadow: 0 0 0 1px rgba(239,83,80,0.3), 0 4px 24px rgba(239,83,80,0.06);
+}
+
+/* 4 — Page Entry Animation */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: pageEnter 200ms ease forwards;
+}
+
+/* 5 — Staggered Card Entry */
+@keyframes cardStagger {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card-stagger {
+  opacity: 0;
+  animation: cardStagger 250ms ease forwards;
+}
+
+/* 6 — Pulse Dot */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.8); }
+}
+.pulse-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #26A69A;
+  display: inline-block;
+  animation: pulseDot 2s ease infinite;
+  flex-shrink: 0;
+}
+
+/* 7 — Button Glows */
+.btn-buy-glow {
+  transition: box-shadow 200ms ease, filter 200ms ease;
+}
+.btn-buy-glow:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(38,166,154,0.3);
+}
+.btn-sell-glow {
+  transition: box-shadow 200ms ease, filter 200ms ease;
+}
+.btn-sell-glow:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(239,83,80,0.3);
+}
+
+/* 8 — Emotion Pill Hover */
+.emo-pill {
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.emo-pill:hover {
+  transform: scale(1.05);
+}
+
+/* 9 — Ticker Tape */
+@keyframes tickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-tape {
+  overflow: hidden;
+  height: 28px;
+  background: #0D0E11;
+  border-bottom: 1px solid #1E2230;
+  flex-shrink: 0;
+  position: relative;
+}
+.ticker-tape:hover .ticker-inner { animation-play-state: paused; }
+.ticker-inner {
+  display: flex;
+  white-space: nowrap;
+  animation: tickerScroll 60s linear infinite;
+  will-change: transform;
+}
+
+/* 10 — Toast Notification */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(16px); }
+}
+.toast-enter { animation: toastIn 200ms ease forwards; }
+.toast-exit  { animation: toastOut 200ms ease forwards; }
+
+/* 11 — Chart gradient bleed */
+.chart-gradient-bleed {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 32px;
+  background: linear-gradient(to top, #131722, transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* 12 — Status bar */
+.status-bar {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #434651;
+  background: #0B0D13;
+  border-bottom: 1px solid #1E2230;
+  flex-shrink: 0;
+}
+

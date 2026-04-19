@@ -77,10 +77,6 @@ export default function AuthPage() {
       {/* Right Panel (60%) - Login Form */}
       <div className="w-full lg:w-[60%] bg-surface flex items-center justify-center relative p-6">
 
-        {/* Back to dashboard floating link */}
-        <button onClick={() => navigate('/')} className="absolute top-8 right-8 text-xs font-semibold uppercase tracking-[0.1em] text-text-secondary hover:text-text-primary transition-colors">
-          Explore as Guest →
-        </button>
 
         <div className="w-full max-w-[360px] animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="mb-8">

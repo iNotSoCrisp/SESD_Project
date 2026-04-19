@@ -12,7 +12,7 @@ export interface ITradeRepository {
   findById(id: string): Promise<PersistedTradeRecord | null>
   findByAccountId(accountId: string, filters?: TradeListFilters): Promise<readonly PersistedTradeRecord[]>
   findByUserId(userId: string, filters?: TradeListFilters): Promise<readonly PersistedTradeRecord[]>
-  create(input: CreateTradeRecordInput): Promise<PersistedTradeRecord>
+  create(input: CreateTradeRecordInput & { emotion?: string }): Promise<PersistedTradeRecord>
   update(id: string, input: UpdateTradeRecordInput): Promise<PersistedTradeRecord>
   updateStatus(id: string, status: TradeStatus, closedAt?: Date): Promise<PersistedTradeRecord>
 }
@@ -38,7 +38,12 @@ export class TradeRepository implements ITradeRepository {
   async findById(id: string): Promise<PersistedTradeRecord | null> {
     const r = await prisma.trade.findUnique({ where: { id } }); return r ? this.toRecord(r) : null
   }
-  async create(input: CreateTradeRecordInput): Promise<PersistedTradeRecord> {
+  async create(input: CreateTradeRecordInput & { emotion?: string }): Promise<PersistedTradeRecord> {
+    const emotionMap: Record<string, string> = {
+      'GREED': 'GREEDY', 'FOMO': 'FOMO', 'FEAR': 'FEARFUL', 
+      'CONFIDENCE': 'CONFIDENT', 'UNCERTAINTY': 'ANXIOUS', 'NEUTRAL': 'NEUTRAL'
+    };
+    
     const c = await prisma.trade.create({
       data: {
         ...(input.id && input.id.length > 0 && { id: input.id }),
@@ -47,6 +52,15 @@ export class TradeRepository implements ITradeRepository {
         status: input.status, openedAt: input.enteredAt, closedAt: input.closedAt,
         ...(input.limitPrice !== undefined && { limitPrice: input.limitPrice }),
         ...(input.stopPrice !== undefined && { stopPrice: input.stopPrice }),
+        ...(input.emotion && {
+          emotionLogs: {
+            create: {
+              phase: 'PRE',
+              emotionType: (emotionMap[input.emotion.toUpperCase()] || 'NEUTRAL') as import('@prisma/client').EmotionType,
+              intensity: 5
+            }
+          }
+        })
       }
     })
     return this.toRecord(c)

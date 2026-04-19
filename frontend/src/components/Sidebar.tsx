@@ -1,17 +1,8 @@
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { 
-  Activity, 
-  LayoutGrid, 
-  TrendingUp, 
-  Map, 
-  Bitcoin, 
-  BrainCircuit, 
-  Briefcase, 
-  History, 
-  Settings, 
-  LogOut 
-} from 'lucide-react'
+import { Activity, LayoutGrid, TrendingUp, Map, Bitcoin, BrainCircuit, Briefcase, History, Settings, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { getAccounts } from '../api/accounts'
 import type { TradingAccount } from '../types'
 
 interface SidebarProps {
@@ -22,63 +13,72 @@ interface SidebarProps {
 export default function Sidebar({ accounts = [], selectedAccountId }: SidebarProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [localAccounts, setLocalAccounts] = useState<TradingAccount[]>([])
 
-  const activeAccount = accounts.find(a => a.id === selectedAccountId)
+  useEffect(() => {
+    // If parent doesn't provide accounts (e.g. on generic pages like Movers), fetch them here
+    if (user && accounts.length === 0) {
+      getAccounts().then(res => setLocalAccounts(res.data.data)).catch(console.warn)
+    }
+  }, [user, accounts.length])
+
+  const displayAccounts = accounts.length > 0 ? accounts : localAccounts
+  const displayAccountId = selectedAccountId || (displayAccounts.length > 0 ? displayAccounts[0].id : null)
+  const activeAccount = displayAccounts.find(a => a.id === displayAccountId)
 
   return (
-    <aside className="w-[220px] bg-base flex flex-col border-r border-border-subtle shrink-0">
+    <aside style={{ width: 220, background: 'linear-gradient(180deg, #0F1117 0%, #0D0E11 100%)', borderRight: '1px solid #1E2230', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
       {/* Brand */}
-      <div className="h-14 flex items-center px-4 gap-2 border-b border-border-subtle shrink-0 cursor-pointer" onClick={() => navigate('/dashboard')}>
-        <Activity className="text-accent w-5 h-5 shrink-0" />
-        <span className="font-mono font-bold text-[15px] tracking-tight text-white">ShadowTrade</span>
+      <div
+        onClick={() => navigate('/dashboard')}
+        style={{ height: 52, display: 'flex', alignItems: 'center', padding: '0 16px', gap: 8, borderBottom: '1px solid #1E2230', cursor: 'pointer', flexShrink: 0 }}
+      >
+        <Activity style={{ color: '#2962FF', width: 18, height: 18 }} />
+        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: 15, letterSpacing: '-0.02em', color: '#fff', textShadow: '0 0 20px rgba(41,98,255,0.4)' }}>ShadowTrade</span>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 flex flex-col gap-1 px-3 mt-4 overflow-y-auto overflow-x-hidden">
-        <NavItem to="/dashboard" icon={<LayoutGrid className="w-4 h-4" />} label="Market Overview" />
-        <NavItem to="/movers" icon={<TrendingUp className="w-4 h-4" />} label="Gainers & Losers" />
-        <NavItem to="/heatmap" icon={<Map className="w-4 h-4" />} label="Sector Heatmap" />
-        <NavItem to="/crypto" icon={<Bitcoin className="w-4 h-4" />} label="Crypto" />
-        <NavItem to="/psychology" icon={<BrainCircuit className="w-4 h-4" />} label="Psychology Log" />
-        
-        <div className="my-4 border-t border-border-subtle mx-[-12px]" />
-        
-        <NavItem to="/portfolio" icon={<Briefcase className="w-4 h-4" />} label="My Portfolio" />
-        <NavItem to="/history" icon={<History className="w-4 h-4" />} label="Trade History" />
-        <NavItem to="/settings" icon={<Settings className="w-4 h-4" />} label="Settings" />
+      <nav style={{ flex: 1, padding: '12px 0', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <NavItem to="/dashboard" icon={<LayoutGrid size={15} />} label="Market Overview" />
+        <NavItem to="/movers" icon={<TrendingUp size={15} />} label="Gainers & Losers" />
+        <NavItem to="/heatmap" icon={<Map size={15} />} label="Sector Heatmap" />
+        <NavItem to="/crypto" icon={<Bitcoin size={15} />} label="Crypto" />
+        <NavItem to="/psychology" icon={<BrainCircuit size={15} />} label="Psychology Log" />
+
+        <div style={{ margin: '8px 0', borderTop: '1px solid #1E2230' }} />
+
+        <NavItem to="/portfolio" icon={<Briefcase size={15} />} label="My Portfolio" />
+        <NavItem to="/history" icon={<History size={15} />} label="Trade History" />
+        <NavItem to="/settings" icon={<Settings size={15} />} label="Settings" />
       </nav>
 
       {/* User Card */}
       {user ? (
-          <div className="p-4 border-t border-border-subtle mt-auto shrink-0 bg-base">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-surface-elevated border border-border-subtle flex items-center justify-center text-xs font-medium text-white uppercase select-none">
-                  {user.email[0]}
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-[13px] font-medium text-white truncate max-w-[100px]">{user.username || user.email.split('@')[0]}</p>
-                </div>
+        <div style={{ padding: 12, borderTop: '1px solid #1E2230', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#1C2030', border: '1px solid #2A2E39', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#fff', fontWeight: 600, textTransform: 'uppercase' }}>
+                {user.email[0]}
               </div>
-              <button onClick={logout} className="text-text-secondary hover:text-bearish transition-colors p-1" title="Sign out">
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-            
-            {/* Paper Balance Chip */}
-            <div className="bg-surface rounded border border-border-subtle px-2.5 py-1.5 flex flex-col items-center">
-              <span className="text-[10px] font-semibold tracking-wider uppercase text-text-secondary mb-0.5">Paper Balance</span>
-              <span className="text-[15px] font-mono font-medium text-bullish tracking-tight truncate">
-                {activeAccount ? `$${activeAccount.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '$0.00'}
+              <span style={{ fontSize: 12, color: '#D1D4DC', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user.username || user.email.split('@')[0]}
               </span>
             </div>
+            <button onClick={logout} title="Sign out" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#787B86', padding: 4, display: 'flex' }}>
+              <LogOut size={14} />
+            </button>
           </div>
+          <div style={{ background: '#131722', border: '1px solid #1E2230', borderRadius: 5, padding: '6px 10px', textAlign: 'center', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)' }}>
+            <div style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#434651', marginBottom: 2 }}>Paper Balance</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'DM Mono, monospace', fontSize: 14, color: '#26A69A', fontWeight: 600 }}>
+              <span className="pulse-dot" />
+              {activeAccount ? `$${activeAccount.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '$—'}
+            </div>
+          </div>
+        </div>
       ) : (
-        <div className="p-4 border-t border-border-subtle mt-auto flex flex-col gap-2 shrink-0 bg-base">
-          <span className="text-xs text-text-secondary text-center mb-1">Guest Mode</span>
-          <button onClick={() => navigate('/login')} className="w-full py-2 bg-accent hover:bg-[#427AEE] rounded text-[13px] font-semibold text-white transition-colors">
-            Sign In
-          </button>
+        <div style={{ padding: 12, borderTop: '1px solid #1E2230', flexShrink: 0 }}>
+          <button onClick={() => navigate('/login')} style={{ width: '100%', padding: '8px 0', background: '#2962FF', border: 'none', borderRadius: 5, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Sign In</button>
         </div>
       )}
     </aside>
@@ -87,18 +87,29 @@ export default function Sidebar({ accounts = [], selectedAccountId }: SidebarPro
 
 function NavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
   return (
-    <NavLink
-      to={to}
-      className={({ isActive }) => 
-        `flex items-center gap-3 px-3 py-2 rounded-[6px] text-[13px] font-medium transition-all ${
-          isActive 
-            ? 'bg-surface-elevated text-white text-accent border-l-[3px] border-accent border-l-accent'
-            : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated border-l-[3px] border-transparent'
-        }`.replace('border-l-accent', 'border-accent')
+    <NavLink to={to} style={({ isActive }) => ({
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '7px 16px 7px 13px',
+      borderLeft: isActive ? '3px solid #2962FF' : '3px solid transparent',
+      background: isActive ? '#1C2030' : 'transparent',
+      color: isActive ? '#FFFFFF' : '#787B86',
+      fontSize: 13, fontWeight: 500, textDecoration: 'none',
+      transition: 'all 120ms ease',
+    })}
+    onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (!e.currentTarget.style.borderLeftColor.includes('41, 98')) {
+        e.currentTarget.style.background = '#161B27'
+        e.currentTarget.style.color = '#D1D4DC'
       }
-      style={({ isActive }) => isActive ? { borderLeftColor: 'var(--color-accent)', backgroundColor: 'var(--color-surface-elevated)' } : {}}
+    }}
+    onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (!e.currentTarget.style.borderLeftColor.includes('41, 98')) {
+        e.currentTarget.style.background = 'transparent'
+        e.currentTarget.style.color = '#787B86'
+      }
+    }}
     >
-      <span className="text-inherit opacity-80">{icon}</span>
+      <span style={{ flexShrink: 0, display: 'flex' }}>{icon}</span>
       {label}
     </NavLink>
   )

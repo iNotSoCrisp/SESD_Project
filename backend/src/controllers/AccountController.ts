@@ -22,4 +22,14 @@ export class AccountController {
     const account = await this.repo.create({ userId: req.user.userId, name, currency, balance })
     return res.status(201).json({ data: account })
   }
+
+  resetWallet: Handler = async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required.' })
+    // We get the first account. Because it's a simple app, we assume they have 1 paper trading account.
+    const accounts = await this.repo.findByUserId(req.user.userId)
+    const primary = accounts[0]
+    if (!primary) return res.status(404).json({ error: 'No account found' })
+    await this.repo.resetWallet(primary.id)
+    return res.status(200).json({ data: { success: true } })
+  }
 }

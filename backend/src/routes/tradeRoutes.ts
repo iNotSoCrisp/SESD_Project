@@ -29,5 +29,6 @@ tradeRoutes.get('/market/:symbol', async (req, res) => {
 // Protected
 tradeRoutes.get('/trades', authenticate(), tradeController.listTrades)
 tradeRoutes.post('/trades', authenticate(), tradeController.openTrade)
+tradeRoutes.post('/trades/sell', authenticate(), tradeController.sellTrade)
 tradeRoutes.patch('/trades/:id/close', authenticate(), tradeController.closeTrade)
 tradeRoutes.patch('/trades/:id/cancel', authenticate(), tradeController.cancelTrade)

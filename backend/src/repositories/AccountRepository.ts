@@ -9,9 +9,18 @@ export interface IAccountRepository {
   findByUserId(userId: string): Promise<readonly TradingAccountSummary[]>
   create(data: CreateTradingAccountInput): Promise<TradingAccountSummary>
   updateBalance(id: string, newBalance: number): Promise<TradingAccountSummary>
+  resetWallet(id: string): Promise<void>
 }
 
 export class AccountRepository implements IAccountRepository {
+  async resetWallet(id: string): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      // Delete all trades for the account (cascade will delete positions and emotionLogs)
+      await tx.trade.deleteMany({ where: { tradingAccountId: id } })
+      // Reset balance to 100000
+      await tx.tradingAccount.update({ where: { id }, data: { balance: 100000 } })
+    })
+  }
   async findById(id: string): Promise<TradingAccountSummary | null> {
     const r = await prisma.tradingAccount.findUnique({ where: { id } }); return r ? this.toSummary(r) : null
   }

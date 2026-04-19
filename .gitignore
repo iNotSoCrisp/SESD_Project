@@ -28,3 +28,10 @@ Thumbs.db
 .vscode/
 .idea/
 .qwen/
+
+# AI Assistants & Graphify
+.agent/
+.claude/
+CLAUDE.md
+.venv-graphify*/
+graphify-out/

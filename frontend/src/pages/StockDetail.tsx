@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Star, TrendingUp, TrendingDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { getAccounts } from '../api/accounts'
-import { getTrades, openTrade, closeTrade } from '../api/trades'
+import { getTrades, openTrade } from '../api/trades'
 import { getQuote } from '../services/finnhub'
 import type { QuoteExtended } from '../services/finnhub'
 import type { TradingAccount, Trade } from '../types'
@@ -12,6 +12,7 @@ import Layout from '../components/Layout'
 import TradeChart from '../components/TradeChart'
 import EmotionSelector from '../components/EmotionSelector'
 import RightSidebar from '../components/RightSidebar'
+import TradeToast from '../components/TradeToast'
 
 export default function StockDetail() {
   const { symbol } = useParams()
@@ -20,7 +21,6 @@ export default function StockDetail() {
   
   // Data State
   const [quote, setQuote] = useState<QuoteExtended | null>(null)
-  
   
   // Terminal Logic
   const [accounts, setAccounts] = useState<TradingAccount[]>([])
@@ -33,6 +33,16 @@ export default function StockDetail() {
   const [limit, setLimit] = useState('')
   const [emotion, setEmotion] = useState<string | null>(null)
   const [tradeLoading, setTradeLoading] = useState(false)
+  const [buyError, setBuyError] = useState<string | null>(null)
+  const [sellError, setSellError] = useState<string | null>(null)
+  const [emotionError, setEmotionError] = useState(false)
+
+  // Toast
+  const [toast, setToast] = useState<{ message: string; type: 'buy' | 'sell' } | null>(null)
+
+  // Price flash
+  const prevPrice = useRef<number>(0)
+  const [priceFlash, setPriceFlash] = useState('')
 
   // Load backend basics
   useEffect(() => {
@@ -50,6 +60,9 @@ export default function StockDetail() {
 
   // Polling Quote every 15 seconds
   useEffect(() => {
+    setQuote(null)
+    setTradeLoading(false)
+    
     let active = true
     let intv: number
 
@@ -67,7 +80,7 @@ export default function StockDetail() {
           })
         }
       } catch (_e) {
-        // silently ignore quote fetch errors
+        // silently ignore
       }
     }
 
@@ -75,6 +88,18 @@ export default function StockDetail() {
     intv = window.setInterval(fetchQuote, 15000)
     return () => { active = false; clearInterval(intv) }
   }, [symbol])
+
+  // Price flash effect
+  useEffect(() => {
+    if (!quote) return
+    if (prevPrice.current !== 0 && quote.currentPrice !== prevPrice.current) {
+      setPriceFlash(quote.currentPrice > prevPrice.current ? 'price-flash-up' : 'price-flash-down')
+      const t = setTimeout(() => setPriceFlash(''), 650)
+      prevPrice.current = quote.currentPrice
+      return () => clearTimeout(t)
+    }
+    prevPrice.current = quote.currentPrice
+  }, [quote?.currentPrice])
 
   // Derived state
   const isPositive = quote ? quote.change >= 0 : true
@@ -91,45 +116,64 @@ export default function StockDetail() {
   }))
   const currentHoldings = holdings.find(h => h.symbol === symbol)?.shares || 0
 
-  const handleExecuteTrade = async (direction: 'LONG' | 'SHORT') => {
-    if (!selectedAccountId || !quote || numQty <= 0) return
+  const handleBuy = async () => {
+    setBuyError(null); setEmotionError(false)
+    if (!selectedAccountId || !quote) return
+    if (numQty <= 0 || isNaN(numQty)) { setBuyError('Enter a valid quantity greater than 0'); return }
+    if (!activeAccount || estCost > activeAccount.balance) { setBuyError('Insufficient balance'); return }
+    if (!emotion) { setEmotionError(true); setBuyError('Please select how you\'re feeling'); return }
+
     setTradeLoading(true)
-    
     try {
-       if (direction === 'SHORT' && currentHoldings > 0) {
-          const openEntry = trades.find(t => t.status === 'OPEN' && t.symbol === symbol)
-          if (openEntry) await closeTrade(openEntry.id)
-       } else if (direction === 'LONG') {
-          const payload: any = { accountId: selectedAccountId, symbol: quote.symbol, direction, orderType, quantity: numQty, emotion }
-          if (orderType === 'LIMIT') payload.limitPrice = parseFloat(limit)
-          await openTrade(payload)
-       }
-       // Quick refresh
-       const th = await getTrades(selectedAccountId)
-       setTrades(th.data.data)
-    } catch {
-       alert('Trade configuration error.')
+      const payload: any = { accountId: selectedAccountId, symbol: quote.symbol, direction: 'LONG', orderType, quantity: numQty, emotion }
+      if (orderType === 'LIMIT') payload.limitPrice = parseFloat(limit)
+      await openTrade(payload)
+      const th = await getTrades(selectedAccountId); setTrades(th.data.data)
+      const ah = await getAccounts(); setAccounts(ah.data.data)
+      setEmotion(null); setQty('1')
+      setToast({ message: `Bought ${numQty} shares of ${symbol} at $${actPrice.toFixed(2)}`, type: 'buy' })
+    } catch (e: any) {
+      setBuyError(e?.response?.data?.error || 'Failed to execute trade')
+    } finally {
+      setTradeLoading(false)
+    }
+  }
+
+  const handleSell = async () => {
+    setSellError(null); setEmotionError(false)
+    if (!selectedAccountId || !quote) return
+    if (numQty <= 0 || isNaN(numQty)) { setSellError('Enter a valid quantity'); return }
+    if (numQty > currentHoldings) { setSellError("You don't hold enough shares"); return }
+    if (!emotion) { setEmotionError(true); setSellError('Please select how you\'re feeling'); return }
+
+    setTradeLoading(true)
+    try {
+       await (await import('../api/trades')).sellTrade({ accountId: selectedAccountId, symbol: quote.symbol, quantity: numQty, emotion })
+       const th = await getTrades(selectedAccountId); setTrades(th.data.data)
+       const ah = await getAccounts(); setAccounts(ah.data.data)
+       setEmotion(null); setQty('1')
+       setToast({ message: `Sold ${numQty} shares of ${symbol} at $${actPrice.toFixed(2)}`, type: 'sell' })
+    } catch (e: any) {
+       setSellError(e?.response?.data?.error || 'Failed to close position')
     } finally {
        setTradeLoading(false)
     }
   }
 
-  // Calculate visual marker
-  const barRange = quote ? quote.high - quote.low : 0
-  const markerPos = quote && barRange > 0 ? ((quote.currentPrice - quote.low) / barRange) * 100 : 50
+  const prevClose = quote ? quote.currentPrice - quote.change : 0
 
   return (
     <Layout accounts={accounts} selectedAccountId={selectedAccountId}>
        <div className="flex-1 flex flex-col min-w-0 border-r border-border-subtle bg-base">
          
-         {/* TOP BAR */}
-         <div className="h-16 border-b border-border-subtle flex items-center px-4 shrink-0 justify-between">
+         {/* TOP BAR — TradingView-style terminal layout */}
+         <div className="border-b border-border-subtle flex items-center px-4 shrink-0 justify-between" style={{ minHeight: 72 }}>
             <div className="flex items-center gap-4">
               <button onClick={() => navigate('/dashboard')} className="p-2 text-text-secondary hover:text-white rounded-md hover:bg-surface transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div>
-                 <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-2 mb-0.5">
                    <h1 className="text-lg font-mono font-bold text-white tracking-tight">{symbol?.toUpperCase()}</h1>
                    <button className="text-text-disabled hover:text-accent disabled:opacity-50"><Star className="w-4 h-4" /></button>
                  </div>
@@ -137,52 +181,28 @@ export default function StockDetail() {
             </div>
             
             {quote && (
-              <div className="flex items-center gap-4">
-                <div className="flex items-baseline gap-2">
-                   <span className="text-2xl font-mono font-bold tracking-tighter text-white">${quote.currentPrice.toFixed(2)}</span>
-                </div>
-                <div className={`flex items-center gap-1 font-semibold text-xs px-2 py-1 rounded border ${isPositive ? 'bg-bullish/10 text-bullish border-bullish/20' : 'bg-bearish/10 text-bearish border-bearish/20'}`}>
+              <div className="flex flex-col items-end">
+                {/* Large price */}
+                <span className={`font-mono font-bold tracking-tighter text-white ${priceFlash}`} style={{ fontSize: 36, lineHeight: 1 }}>
+                  ${quote.currentPrice.toFixed(2)}
+                </span>
+                {/* Change line */}
+                <div className={`flex items-center gap-1 font-semibold text-sm mt-0.5 ${isPositive ? 'text-bullish' : 'text-bearish'}`}>
                    {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                   <span className="font-mono">{quote.change >= 0 ? '+' : ''}{quote.change.toFixed(2)} ({quote.changePercent.toFixed(2)}%)</span>
+                   <span className="font-mono">{quote.change >= 0 ? '+' : ''}${quote.change.toFixed(2)}  ({quote.changePercent.toFixed(2)}%)</span>
                 </div>
+                {/* OHLC line */}
+                <span className="text-[11px] text-text-disabled font-mono mt-0.5">
+                  O ${quote.open.toFixed(2)}  ·  H ${quote.high.toFixed(2)}  ·  L ${quote.low.toFixed(2)}  ·  PC ${prevClose.toFixed(2)}
+                </span>
               </div>
             )}
          </div>
 
-         {/* STATS ROW */}
-         {quote && (
-           <div className="p-4 bg-surface flex flex-col shrink-0 gap-4 border-b border-border-subtle">
-             <div className="flex gap-4">
-                {[
-                  { l: "TODAY'S HIGH", v: quote.high },
-                  { l: "TODAY'S LOW", v: quote.low },
-                  { l: "OPEN", v: quote.open },
-                  { l: "PREV. CLOSE", v: quote.currentPrice - quote.change } // fallback calc
-                ].map(s => (
-                  <div key={s.l} className="flex-1 bg-surface-elevated rounded border border-border-subtle p-3 flex flex-col items-center">
-                    <span className="text-[11px] text-text-secondary uppercase tracking-[0.1em] mb-1">{s.l}</span>
-                    <span className="text-sm font-mono font-bold text-white">${s.v.toFixed(2)}</span>
-                  </div>
-                ))}
-             </div>
-             
-             {/* High / Low Visualizer */}
-             <div className="flex items-center gap-3 w-full px-2">
-                <span className="text-xs font-mono text-text-secondary w-16 text-right">${quote.low.toFixed(2)}</span>
-                <div className="flex-1 relative h-2 rounded-full overflow-hidden shrink-0" style={{ background: 'linear-gradient(to right, #EF5350, #26A69A)' }}>
-                   <div 
-                     className="absolute top-0 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_black] border-2 border-base -mt-0.5"
-                     style={{ left: `calc(${markerPos}% - 6px)` }}
-                   />
-                </div>
-                <span className="text-xs font-mono text-text-secondary w-16">${quote.high.toFixed(2)}</span>
-             </div>
-           </div>
-         )}
-         
-         {/* CHART AREA */}
-         <div className="flex-1 relative min-h-[300px]">
+         {/* CHART AREA — fills remaining space */}
+         <div className="relative flex-1 min-h-[250px]">
             {symbol ? <TradeChart symbol={symbol} /> : null}
+            <div className="chart-gradient-bleed" />
          </div>
 
          {/* EXECUTION PANEL */}
@@ -211,12 +231,15 @@ export default function StockDetail() {
                </div>
 
                <div className="mt-4 flex items-center justify-between relative z-10">
-                 <span className="text-xs text-text-secondary">Est. Cost: <span className="text-white font-mono ml-1">${estCost.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })}</span></span>
-                 <button disabled={tradeLoading || !quote || numQty <= 0} onClick={() => handleExecuteTrade('LONG')} className="bg-bullish hover:brightness-110 disabled:opacity-50 text-black font-bold text-[13px] px-8 py-2 rounded transition-all">BUY</button>
+                 <div className="flex flex-col">
+                   <span className="text-xs text-text-secondary">Est. Cost: <span className="text-white font-mono ml-1">${estCost.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })}</span></span>
+                   {buyError && <span className="text-[11px] text-red-400 mt-1">{buyError}</span>}
+                 </div>
+                 <button disabled={tradeLoading || !quote || numQty <= 0 || isNaN(numQty) || (activeAccount && estCost > activeAccount.balance)} onClick={handleBuy} className="btn-buy-glow bg-bullish hover:brightness-110 disabled:opacity-50 disabled:grayscale text-black font-bold text-[13px] px-8 py-2 rounded transition-all">BUY</button>
                </div>
             </div>
 
-            <EmotionSelector selectedEmotion={emotion} onSelect={setEmotion} />
+            <EmotionSelector selectedEmotion={emotion} onSelect={(e) => { setEmotion(e); setEmotionError(false) }} error={emotionError} />
 
             {/* SELL ZONE */}
             <div className="flex-1 flex flex-col p-4 relative before:absolute before:inset-0 before:bg-bearish/5 before:pointer-events-none">
@@ -227,13 +250,16 @@ export default function StockDetail() {
                <div className="mb-auto relative z-10 flex">
                  <div className="bg-base border border-border-subtle rounded flex flex-col items-center justify-center px-6 py-2 flex-1">
                    <span className="text-xs text-text-secondary mb-1">You hold</span>
-                   <span className="font-mono text-xl text-white font-bold">{currentHoldings}</span>
+                   <span className="font-mono text-xl text-white font-bold">{currentHoldings > 0 ? currentHoldings : `No position in ${symbol}`}</span>
                  </div>
                </div>
 
                <div className="mt-4 flex items-center justify-between relative z-10">
-                 <span className="text-xs text-text-secondary">Est. Return: <span className="text-white font-mono ml-1">${(actPrice * currentHoldings).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })}</span></span>
-                 <button disabled={tradeLoading || !quote || currentHoldings <= 0} onClick={() => handleExecuteTrade('SHORT')} className="bg-bearish hover:brightness-110 disabled:opacity-50 text-white font-bold text-[13px] px-8 py-2 rounded transition-all">SELL</button>
+                 <div className="flex flex-col">
+                   <span className="text-xs text-text-secondary">Est. Return: <span className="text-white font-mono ml-1">${(actPrice * numQty).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })}</span></span>
+                   {sellError && <span className="text-[11px] text-red-400 mt-1">{sellError}</span>}
+                 </div>
+                 <button disabled={tradeLoading || !quote || currentHoldings <= 0 || numQty <= 0 || isNaN(numQty) || numQty > currentHoldings} onClick={handleSell} className="btn-sell-glow bg-bearish hover:brightness-110 disabled:opacity-50 disabled:grayscale text-white font-bold text-[13px] px-8 py-2 rounded transition-all">SELL</button>
                </div>
             </div>
          </div>
@@ -251,6 +277,9 @@ export default function StockDetail() {
             }))}
          />
        )}
+
+       {/* Toast */}
+       {toast && <TradeToast message={toast.message} type={toast.type} onDone={() => setToast(null)} />}
     </Layout>
   )
 }

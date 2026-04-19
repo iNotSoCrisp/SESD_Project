@@ -3,110 +3,117 @@ import { Activity } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useQuotes } from '../hooks/useQuotes'
+import { SkeletonMoverRow } from '../components/Skeleton'
 import type { QuoteExtended } from '../services/finnhub'
 
 export default function GainersLosers() {
-  const { stocks } = useQuotes()
+  const { stocks, loadingStocks } = useQuotes()
   const navigate = useNavigate()
 
   const { gainers, losers, volatile } = useMemo(() => {
     if (stocks.length === 0) return { gainers: [], losers: [], volatile: [] }
-    
     const sorted = [...stocks].sort((a, b) => b.changePercent - a.changePercent)
     const active = [...stocks].sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent))
-
-    return {
-      gainers: sorted.slice(0, 5),
-      losers: sorted.slice().reverse().slice(0, 5),
-      volatile: active.slice(0, 5)
-    }
+    return { gainers: sorted.slice(0, 8), losers: sorted.reverse().slice(0, 8), volatile: active.slice(0, 5) }
   }, [stocks])
 
   const renderRow = (s: QuoteExtended, index: number, isWinner: boolean) => (
-    <div 
-      key={s.symbol} 
+    <div
+      key={s.symbol}
       onClick={() => navigate(`/stock/${s.symbol}`)}
-      className={`flex items-center justify-between p-3 rounded-lg border border-transparent transition-all cursor-pointer ${isWinner ? 'hover:bg-bullish/5 hover:border-bullish/20' : 'hover:bg-bearish/5 hover:border-bearish/20'}`}
+      style={{ height: 56, display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px', borderBottom: '1px solid #1A1E2E', cursor: 'pointer', transition: 'background 100ms' }}
+      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#0F1117'}
+      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
     >
-       <div className="flex items-center gap-4">
-         <span className="text-text-disabled font-mono text-sm w-4">{index + 1}</span>
-         <div>
-            <h3 className="text-white font-mono font-bold text-[15px]">{s.symbol}</h3>
-            <p className="text-xs text-text-secondary w-32 truncate">{s.name}</p>
-         </div>
-       </div>
-       <div className="text-right">
-         <span className="text-white font-mono block text-sm">${s.currentPrice.toFixed(2)}</span>
-         <span className={`text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded inline-block mt-1 ${isWinner ? 'bg-bullish text-black' : 'bg-bearish text-white'}`}>
-           {isWinner ? '+' : ''}{s.changePercent.toFixed(2)}%
-         </span>
-       </div>
+      <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: '#434651', width: 20, textAlign: 'right', flexShrink: 0 }}>{index + 1}</span>
+      <div style={{ width: 4, height: 32, borderRadius: 2, background: isWinner ? '#26A69A' : '#EF5350', flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: 14, color: '#fff' }}>{s.symbol}</div>
+        <div style={{ fontSize: 11, color: '#787B86', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#D1D4DC' }}>${s.currentPrice.toFixed(2)}</span>
+        <span style={{
+          fontFamily: 'DM Mono, monospace', fontSize: 11, padding: '1px 6px', borderRadius: 3,
+          background: isWinner ? 'rgba(38,166,154,0.15)' : 'rgba(239,83,80,0.15)',
+          color: isWinner ? '#26A69A' : '#EF5350',
+          border: `1px solid ${isWinner ? 'rgba(38,166,154,0.3)' : 'rgba(239,83,80,0.3)'}`,
+        }}>
+          {isWinner ? '▲' : '▼'} {isWinner ? '+' : ''}{s.changePercent.toFixed(2)}%
+        </span>
+      </div>
     </div>
   )
 
   return (
-    <Layout>
-      <div className="flex-1 overflow-y-auto p-8 bg-base">
-         <div className="mb-8 flex items-end justify-between border-b border-border-subtle pb-4">
-           <div>
-             <h1 className="text-2xl font-bold tracking-tight text-white mb-2">Gainers & Losers</h1>
-             <p className="text-sm text-text-secondary">Tracking today's highest momentum assets across your watchlist.</p>
-           </div>
-           {stocks.length > 0 && (
-             <span className="text-xs text-text-disabled flex items-center gap-2">
-               <span className="w-2 h-2 rounded-full bg-bullish animate-pulse" /> Live Updating
-             </span>
-           )}
-         </div>
-
-         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-            
-            {/* GAINERS */}
-            <div className="bg-surface rounded-xl border border-border-subtle p-6 shadow-sm">
-               <div className="flex items-center gap-2 mb-6">
-                 <span className="w-2 h-2 rounded-full bg-bullish" />
-                 <h2 className="text-xs font-bold text-text-secondary uppercase tracking-[0.1em]">Top Gainers Today</h2>
-               </div>
-               <div className="space-y-1">
-                 {gainers.map((g, i) => renderRow(g, i, true))}
-                 {gainers.length === 0 && <div className="text-center text-sm py-8 text-text-disabled">Awaiting market data...</div>}
-               </div>
+    <Layout title="Gainers & Losers" quotes={stocks}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: '#0B0D13' }}>
+        {/* Header */}
+        <div style={{ marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid #1E2230', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Gainers & Losers</h1>
+            <p style={{ fontSize: 12, color: '#787B86' }}>Today's top momentum stocks across your watchlist</p>
+          </div>
+          {stocks.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#434651' }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#26A69A', animation: 'pulse 2s infinite' }} />
+              Live Updating
             </div>
+          )}
+        </div>
 
-            {/* LOSERS */}
-            <div className="bg-surface rounded-xl border border-border-subtle p-6 shadow-sm">
-               <div className="flex items-center gap-2 mb-6">
-                 <span className="w-2 h-2 rounded-full bg-bearish" />
-                 <h2 className="text-xs font-bold text-text-secondary uppercase tracking-[0.1em]">Top Losers Today</h2>
-               </div>
-               <div className="space-y-1">
-                 {losers.map((l, i) => renderRow(l, i, false))}
-                 {losers.length === 0 && <div className="text-center text-sm py-8 text-text-disabled">Awaiting market data...</div>}
-               </div>
+        {/* Two columns */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, marginBottom: 32 }}>
+          {/* Gainers */}
+          <div>
+            <div style={{ borderLeft: '3px solid #26A69A', paddingLeft: 12, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#787B86' }}>Top Gainers</span>
             </div>
-         </div>
+            {loadingStocks
+              ? Array.from({ length: 5 }).map((_, i) => <SkeletonMoverRow key={i} />)
+              : gainers.length === 0
+                ? <div style={{ padding: '24px 0', textAlign: 'center', color: '#434651', fontSize: 12 }}>Awaiting market data…</div>
+                : gainers.map((g, i) => renderRow(g, i, true))
+            }
+          </div>
 
-         {/* VOLATILITY ROW */}
-         <div>
-             <div className="flex items-center gap-2 mb-6">
-               <Activity className="w-4 h-4 text-accent" />
-               <h2 className="text-xs font-bold text-text-secondary uppercase tracking-[0.1em]">Most Volatile Today</h2>
-             </div>
-             
-             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                {volatile.map(v => {
-                   const isPos = v.change >= 0
-                   return (
-                     <div key={v.symbol} onClick={() => navigate(`/stock/${v.symbol}`)} className="bg-surface rounded-lg p-4 border border-border-subtle hover:border-accent hover:shadow-accent-glow cursor-pointer transition-all">
-                       <span className="text-sm font-mono font-bold text-white block mb-1">{v.symbol}</span>
-                       <span className={`text-[13px] font-mono font-bold ${isPos ? 'text-bullish' : 'text-bearish'}`}>
-                         {isPos ? '+' : ''}{v.changePercent.toFixed(2)}%
-                       </span>
-                     </div>
-                   )
-                })}
-             </div>
-         </div>
+          {/* Losers */}
+          <div>
+            <div style={{ borderLeft: '3px solid #EF5350', paddingLeft: 12, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#787B86' }}>Top Losers</span>
+            </div>
+            {loadingStocks
+              ? Array.from({ length: 5 }).map((_, i) => <SkeletonMoverRow key={i} />)
+              : losers.length === 0
+                ? <div style={{ padding: '24px 0', textAlign: 'center', color: '#434651', fontSize: 12 }}>Awaiting market data…</div>
+                : losers.map((l, i) => renderRow(l, i, false))
+            }
+          </div>
+        </div>
+
+        {/* Most Volatile */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Activity size={14} style={{ color: '#2962FF' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#787B86' }}>Most Volatile</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+            {volatile.map(v => {
+              return (
+                <div
+                  key={v.symbol}
+                  onClick={() => navigate(`/stock/${v.symbol}`)}
+                  style={{ background: '#131722', border: '1px solid #1E2230', borderRadius: 6, padding: '12px 14px', cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)', transition: 'border-color 150ms' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = '#FF9800'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = '#1E2230'}
+                >
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: 13, color: '#fff', marginBottom: 4 }}>{v.symbol}</div>
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#FF9800', fontWeight: 600 }}>±{Math.abs(v.changePercent).toFixed(2)}%</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </Layout>
   )

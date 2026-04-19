@@ -30,3 +30,4 @@ authRoutes.post('/auth/login', (req, res) => makeAuthController().login(req, res
 // Protected
 authRoutes.get('/accounts', authenticate(), accountController.listAccounts)
 authRoutes.post('/accounts', authenticate(), accountController.createAccount)
+authRoutes.post('/accounts/reset', authenticate(), accountController.resetWallet)

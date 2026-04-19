@@ -4,13 +4,15 @@ import React from 'react'
 import ErrorBoundary from './components/ErrorBoundary'
 
 import AuthPage from './pages/AuthPage'
-import PlaceholderPage from './pages/PlaceholderPage'
+import Portfolio from './pages/Portfolio'
+import TradeHistory from './pages/TradeHistory'
 import Dashboard from './pages/Dashboard'
 import StockDetail from './pages/StockDetail'
 import GainersLosers from './pages/GainersLosers'
 import Heatmap from './pages/Heatmap'
 import CryptoPage from './pages/CryptoPage'
 import PsychologyLog from './pages/PsychologyLog'
+import Settings from './pages/Settings'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -33,9 +35,9 @@ export default function App() {
             <Route path="/crypto" element={<ProtectedRoute><CryptoPage /></ProtectedRoute>} />
             <Route path="/psychology" element={<ProtectedRoute><PsychologyLog /></ProtectedRoute>} />
 
-            <Route path="/portfolio" element={<ProtectedRoute><PlaceholderPage path="/portfolio" /></ProtectedRoute>} />
-            <Route path="/history" element={<ProtectedRoute><PlaceholderPage path="/history" /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><PlaceholderPage path="/settings" /></ProtectedRoute>} />
+            <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
+            <Route path="/history" element={<ProtectedRoute><TradeHistory /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

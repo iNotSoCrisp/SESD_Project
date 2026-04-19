@@ -1,6 +1,7 @@
 interface EmotionSelectorProps {
   selectedEmotion: string | null
   onSelect: (emotion: string) => void
+  error?: boolean
 }
 
 export const EMOTIONS = [
@@ -12,10 +13,10 @@ export const EMOTIONS = [
   { id: 'Neutral', color: 'bg-emo-neutral', border: 'border-emo-neutral' }
 ]
 
-export default function EmotionSelector({ selectedEmotion, onSelect }: EmotionSelectorProps) {
+export default function EmotionSelector({ selectedEmotion, onSelect, error }: EmotionSelectorProps) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 border-r border-border-subtle bg-base w-[280px]">
-      <label className="text-[10px] font-semibold text-text-secondary uppercase tracking-[0.1em] mb-4 text-center">
+    <div className={`flex flex-col items-center justify-center px-6 border-r border-border-subtle bg-base w-[280px] transition-colors ${error ? 'ring-1 ring-inset ring-red-500/50 bg-red-950/10' : ''}`}>
+      <label className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-4 text-center ${error ? 'text-red-400' : 'text-text-secondary'}`}>
         How are you feeling<br/>right now?
       </label>
       <div className="flex flex-wrap justify-center gap-2">
@@ -23,7 +24,7 @@ export default function EmotionSelector({ selectedEmotion, onSelect }: EmotionSe
           <button
             key={e.id}
             onClick={() => onSelect(e.id)}
-            className={`px-3 py-1 text-[11px] font-semibold rounded-[4px] border border-transparent transition-all hover:brightness-125 ${
+            className={`emo-pill px-3 py-1 text-[11px] font-semibold rounded-[4px] border border-transparent transition-all hover:brightness-125 ${
               selectedEmotion === e.id 
                 ? `ring-2 ring-offset-2 ring-offset-base ${e.border} text-white ${e.color}` 
                 : `bg-surface-elevated text-text-secondary border-border-subtle`
