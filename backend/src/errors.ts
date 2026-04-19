@@ -41,8 +41,9 @@ declare global {
 const JWT_SECRET = process.env.JWT_SECRET ?? ''
 
 export function authenticate(secret?: string) {
-  const s = secret ?? JWT_SECRET
   return (request: Request, response: Response, next: NextFunction): void => {
+    // Read JWT_SECRET lazily so dotenv.config() has already run by call time
+    const s = secret ?? process.env.JWT_SECRET ?? ''
     const authHeader = request.headers.authorization
     if (authHeader === undefined || !authHeader.startsWith('Bearer ')) {
       next(new UnauthorizedError('Missing or invalid Authorization header.'))

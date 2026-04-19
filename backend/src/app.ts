@@ -1,12 +1,15 @@
 import dotenv from 'dotenv'
+
+// MUST be called before any other module reads process.env
+// Using a top-level import so it runs as early as possible
+dotenv.config()
+
 import cors from 'cors'
 import express from 'express'
 import { authRoutes } from './routes/authRoutes'
 import { tradeRoutes } from './routes/tradeRoutes'
 import { analyticsRoutes } from './routes/analyticsRoutes'
 import { PrismaClient } from '@prisma/client'
-
-dotenv.config()
 
 async function main() {
   const prisma = new PrismaClient()
@@ -19,7 +22,7 @@ async function main() {
 
   const frontendUrl = (process.env.FRONTEND_URL ?? '').replace(/\/$/, '')
   app.use(cors({
-    origin: ['http://localhost:5173', frontendUrl].filter(Boolean),
+    origin: ['http://localhost:5173', 'http://localhost:5174', frontendUrl].filter(Boolean),
     credentials: true,
   }))
   app.use(express.json())
