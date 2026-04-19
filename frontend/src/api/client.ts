@@ -13,7 +13,8 @@ client.interceptors.request.use(config => {
 client.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401) {
+    const isAuthRoute = ['/login', '/register'].some(p => window.location.pathname.startsWith(p))
+    if (err.response?.status === 401 && !isAuthRoute) {
       localStorage.removeItem('token')
       window.location.href = '/login'
     }
