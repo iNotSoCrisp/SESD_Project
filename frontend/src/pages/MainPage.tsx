@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useAuth } from '../context/AuthContext'
+import { useUser } from '@clerk/clerk-react'
 import { getAccounts } from '../api/accounts'
 import { getTrades, openTrade, closeTrade } from '../api/trades'
 import { getEmotions } from '../api/emotions'
@@ -12,7 +12,7 @@ import TradeExecutionPanel from '../components/TradeExecutionPanel'
 import RightSidebar from '../components/RightSidebar'
 
 export default function MainPage() {
-  const { user } = useAuth()
+  const { user } = useUser()
   
   // App State
   const [accounts, setAccounts] = useState<TradingAccount[]>([])

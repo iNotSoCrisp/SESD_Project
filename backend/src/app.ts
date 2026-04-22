@@ -6,7 +6,8 @@ dotenv.config()
 
 import cors from 'cors'
 import express from 'express'
-import { authRoutes } from './routes/authRoutes'
+import { clerkMiddleware } from '@clerk/express'
+import { syncUserMiddleware } from './middlewares/syncUser'
 import { tradeRoutes } from './routes/tradeRoutes'
 import { analyticsRoutes } from './routes/analyticsRoutes'
 import { PrismaClient } from '@prisma/client'
@@ -27,7 +28,11 @@ async function main() {
   }))
   app.use(express.json())
 
-  app.use('/api', authRoutes)
+  // Global Clerk middleware sets req.auth
+  app.use(clerkMiddleware())
+  
+  // Custom middleware to lazily sync Clerk users to Prisma DB
+  app.use(syncUserMiddleware)
   app.use('/api', tradeRoutes)
   app.use('/api', analyticsRoutes)
 

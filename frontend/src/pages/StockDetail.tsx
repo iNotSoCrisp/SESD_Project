@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Star, TrendingUp, TrendingDown } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { useUser } from '@clerk/clerk-react'
 import { getAccounts } from '../api/accounts'
 import { getTrades, openTrade } from '../api/trades'
 import { getQuote } from '../services/finnhub'
@@ -17,7 +17,7 @@ import TradeToast from '../components/TradeToast'
 export default function StockDetail() {
   const { symbol } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user } = useUser()
   
   // Data State
   const [quote, setQuote] = useState<QuoteExtended | null>(null)

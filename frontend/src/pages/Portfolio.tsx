@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TrendingUp, TrendingDown, BarChart2, Clock, CheckCircle, XCircle, ArrowUpRight } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { useUser } from '@clerk/clerk-react'
 import { getAccounts } from '../api/accounts'
 import { getTrades } from '../api/trades'
 import { getQuote } from '../services/finnhub'
@@ -20,7 +20,7 @@ interface HoldingRow {
 
 export default function Portfolio() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user } = useUser()
 
   const [accounts, setAccounts] = useState<TradingAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)

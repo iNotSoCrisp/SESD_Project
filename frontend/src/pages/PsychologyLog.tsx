@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { BrainCircuit } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { useAuth } from '../context/AuthContext'
+import { useUser } from '@clerk/clerk-react'
 import { getAccounts } from '../api/accounts'
 import { getTrades } from '../api/trades'
 import type { Trade } from '../types'
@@ -17,7 +17,7 @@ const EMO_META = {
 }
 
 export default function PsychologyLog() {
-  const { user } = useAuth()
+  const { user } = useUser()
   const [trades, setTrades] = useState<Trade[]>([])
   const [loading, setLoading] = useState(true)
 

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './context/AuthContext'
+import { useAuth } from '@clerk/clerk-react'
 import React from 'react'
 import ErrorBoundary from './components/ErrorBoundary'
 
@@ -15,14 +15,14 @@ import PsychologyLog from './pages/PsychologyLog'
 import Settings from './pages/Settings'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth()
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
+  const { isLoaded, userId } = useAuth()
+  if (!isLoaded) return <div className="min-h-screen bg-base flex justify-center items-center text-accent">Loading...</div>
+  return userId ? <>{children}</> : <Navigate to="/login" replace />
 }
 
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<AuthPage />} />
@@ -42,7 +42,6 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
-      </AuthProvider>
     </ErrorBoundary>
   )
 }

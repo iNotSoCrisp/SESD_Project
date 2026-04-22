@@ -1,5 +1,4 @@
 import type { NextFunction, Request, Response } from 'express'
-import jwt from 'jsonwebtoken'
 
 export class AppError extends Error {
   readonly statusCode: number
@@ -30,32 +29,9 @@ export class InvalidStateError extends Error {
   constructor(message: string) { super(message); this.name = 'InvalidStateError' }
 }
 
-// ─── JWT Auth Middleware ─────────────────────────────────────────────────────
-declare global {
-  namespace Express {
-    interface User { userId: string; email: string }
-    interface Request { user?: User }
-  }
-}
+// ─── Clerk Auth Middleware ─────────────────────────────────────────────────────
+import { requireAuth } from '@clerk/express'
 
-const JWT_SECRET = process.env.JWT_SECRET ?? ''
-
-export function authenticate(secret?: string) {
-  return (request: Request, response: Response, next: NextFunction): void => {
-    // Read JWT_SECRET lazily so dotenv.config() has already run by call time
-    const s = secret ?? process.env.JWT_SECRET ?? ''
-    const authHeader = request.headers.authorization
-    if (authHeader === undefined || !authHeader.startsWith('Bearer ')) {
-      next(new UnauthorizedError('Missing or invalid Authorization header.'))
-      return
-    }
-    const token = authHeader.slice(7)
-    try {
-      const decoded = jwt.verify(token, s) as Express.User
-      request.user = decoded
-      next()
-    } catch {
-      next(new UnauthorizedError('Invalid or expired token.'))
-    }
-  }
+export function authenticate() {
+  return requireAuth()
 }

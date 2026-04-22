@@ -40,10 +40,10 @@ enum EmotionType {
 }
 
 model User {
-  id               String            @id @default(cuid())
-  email            String            @unique
-  username         String            @unique
-  passwordHash     String            @map("password_hash")
+  id               String            @id
+  email            String?           @unique
+  username         String?           @unique
+  passwordHash     String?           @map("password_hash")
   firstName        String?           @map("first_name")
   lastName         String?           @map("last_name")
   tradingAccounts  TradingAccount[]

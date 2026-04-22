@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Activity, LayoutGrid, TrendingUp, Map, Bitcoin, BrainCircuit, Briefcase, History, Settings, LogOut } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { useUser, useAuth } from '@clerk/clerk-react'
 import { getAccounts } from '../api/accounts'
 import type { TradingAccount } from '../types'
 
@@ -11,7 +11,8 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ accounts = [], selectedAccountId }: SidebarProps) {
-  const { user, logout } = useAuth()
+  const { user } = useUser()
+  const { signOut } = useAuth()
   const navigate = useNavigate()
   const [localAccounts, setLocalAccounts] = useState<TradingAccount[]>([])
 
@@ -58,13 +59,13 @@ export default function Sidebar({ accounts = [], selectedAccountId }: SidebarPro
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#1C2030', border: '1px solid #2A2E39', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#fff', fontWeight: 600, textTransform: 'uppercase' }}>
-                {user.email[0]}
+                {user.primaryEmailAddress?.emailAddress?.[0] || 'U'}
               </div>
               <span style={{ fontSize: 12, color: '#D1D4DC', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user.username || user.email.split('@')[0]}
+                {user.username || user.firstName || user.primaryEmailAddress?.emailAddress?.split('@')[0]}
               </span>
             </div>
-            <button onClick={logout} title="Sign out" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#787B86', padding: 4, display: 'flex' }}>
+            <button onClick={() => signOut()} title="Sign out" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#787B86', padding: 4, display: 'flex' }}>
               <LogOut size={14} />
             </button>
           </div>

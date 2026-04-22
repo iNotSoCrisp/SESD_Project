@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { History, ArrowUpRight } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { useUser } from '@clerk/clerk-react'
 import { getAccounts } from '../api/accounts'
 import { getTrades } from '../api/trades'
 import type { TradingAccount, Trade } from '../types'
@@ -9,7 +9,7 @@ import Layout from '../components/Layout'
 
 export default function TradeHistory() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user } = useUser()
   const [accounts, setAccounts] = useState<TradingAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [trades, setTrades] = useState<Trade[]>([])

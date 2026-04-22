@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import StockCard from '../components/StockCard'
 import { SkeletonStockCard } from '../components/Skeleton'
 import { useQuotes } from '../hooks/useQuotes'
-import { useAuth } from '../context/AuthContext'
+import { useUser } from '@clerk/clerk-react'
 import { getAccounts } from '../api/accounts'
 import type { TradingAccount } from '../types'
 
@@ -13,7 +13,7 @@ const SECTORS = ['All', 'Technology', 'Finance', 'Healthcare', 'Energy', 'Automo
 export default function Dashboard() {
   const { stocks, crypto, loadingStocks, rateLimitActive, rateLimitTimer } = useQuotes()
   const [activeTab, setActiveTab] = useState('All')
-  const { user } = useAuth()
+  const { user } = useUser()
   const [accounts, setAccounts] = useState<TradingAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
 

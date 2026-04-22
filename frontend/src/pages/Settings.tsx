@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Layout from '../components/Layout'
-import { useAuth } from '../context/AuthContext'
+import { useUser } from '@clerk/clerk-react'
 import { resetAccount } from '../api/accounts'
 import { useNavigate } from 'react-router-dom'
 
@@ -53,7 +53,7 @@ const NavItem = ({ label, active, onClick }: { label: string; active: boolean; o
 )
 
 export default function Settings() {
-  const { user } = useAuth()
+  const { user } = useUser()
   const navigate = useNavigate()
   const [section, setSection] = useState<Section>('profile')
 
@@ -155,8 +155,8 @@ export default function Settings() {
             <div>
               <h2 style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Profile</h2>
               <p style={{ fontSize: 12, color: '#787B86', marginBottom: 24 }}>Your account information.</p>
-              <SettingRow label="Username" control={<span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#D1D4DC' }}>{user?.username || '—'}</span>} />
-              <SettingRow label="Email" control={<span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#D1D4DC' }}>{user?.email || '—'}</span>} />
+              <SettingRow label="Username" control={<span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#D1D4DC' }}>{user?.username || user?.firstName || '—'}</span>} />
+              <SettingRow label="Email" control={<span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: '#D1D4DC' }}>{user?.primaryEmailAddress?.emailAddress || '—'}</span>} />
               <SettingRow label="Account Type" control={<span style={{ fontSize: 12, color: '#2962FF', background: 'rgba(41,98,255,0.1)', padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(41,98,255,0.3)' }}>Paper Trading</span>} />
               
               <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #1A1E2E' }}>
