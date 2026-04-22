@@ -10,6 +10,7 @@ import { clerkMiddleware } from '@clerk/express'
 import { syncUserMiddleware } from './middlewares/syncUser'
 import { tradeRoutes } from './routes/tradeRoutes'
 import { analyticsRoutes } from './routes/analyticsRoutes'
+import { accountRoutes } from './routes/accountRoutes'
 import { PrismaClient } from '@prisma/client'
 
 async function main() {
@@ -33,6 +34,7 @@ async function main() {
   
   // Custom middleware to lazily sync Clerk users to Prisma DB
   app.use(syncUserMiddleware)
+  app.use('/api', accountRoutes)
   app.use('/api', tradeRoutes)
   app.use('/api', analyticsRoutes)
 
